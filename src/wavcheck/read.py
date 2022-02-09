@@ -1,9 +1,14 @@
+import base64
 import chunk
-import enum
 import os
 import pathlib
 import struct
 import wave
+
+from .data import BwfMetadata
+from .data import InternalState
+from .data import WavMetadata
+from .data import WavFileState
 
 _BITS_PER_BYTE = 8
 
@@ -11,56 +16,17 @@ _BITS_PER_BYTE = 8
 _WAV_HDR_LEN_BYTES = 12
 
 
-class BwfMetadata:
-    """Holds metadata read from BWF extension chunk in WAV file."""
-    description: str
-    originator: str
-    originator_reference: str
-    origination_date: str
-    origination_time: str
-    samples_since_origin: int
-    version: int
-
-    coding_history: str
-
-    # For BWF Version 1+:
-    umid: bytes  # 64 bytes.
-
-    # For BWF Version 2+:
-    integrated_lufs: float
-    loudness_range_lu: float
-    max_dbtp: float
-    max_momentary_lufs: float
-    max_short_term_lufs: float
-
-
-class WavMetadata:
-    """Holds metadata read from a WAV file."""
-    path: pathlib.Path
-
-    # Basic WAV format metadata:
-    num_chans: int
-    bit_depth: int
-    sample_rate_hz: int
-    duration_secs: float
-
-    # Broadcast Wave Format (BWF) metadata:
-    bwf_data: BwfMetadata
-
-    def __init__(self, path: pathlib.Path):
-        self.path = path
-
-
-def read_wav_files(dir: pathlib.Path) -> list[WavMetadata]:
+def read_wav_files(dir: pathlib.Path) -> InternalState:
     """Reads metadata for all WAV files in the given dir."""
     print("[wavcheck] Reading .wav files in '%s' ..." % dir)
 
-    result: list[WavMetadata] = []
+    result = InternalState()
     with os.scandir(dir) as entries:
         for entry in entries:
             if entry.is_file() and str(entry.name).endswith(".wav"):
-                result.append(_read_wav_file(
-                    pathlib.Path(entry.path).resolve()))
+                p = pathlib.Path(entry.path).resolve()
+                result.wav_files[p.name] = WavFileState()
+                result.wav_files[p.name].metadata = _read_wav_file(p)
     return result
 
 
@@ -122,10 +88,6 @@ _BWF_STRUCT_PACK_FMT = (
 )
 
 
-def _ascii_str(data: bytes) -> str:
-    return data.decode("ascii").rstrip('\0')
-
-
 def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
     """Populates BWF metadata."""
     bwf_data = bwf_chunk.read()
@@ -144,6 +106,7 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
 
     if result.version >= 1:
         result.umid = bwf_fields[7]
+        result.umid_base64 = base64.standard_b64encode(result.umid).decode("ascii")
 
     if result.version >= 2:
         result.integrated_lufs = float(bwf_fields[8]) / 100.0
@@ -154,3 +117,7 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
 
     result.coding_history = _ascii_str(bwf_data[coding_history_offset:]).rstrip("\r\n")
     return result
+
+
+def _ascii_str(data: bytes) -> str:
+    return data.decode("ascii").rstrip("\0")

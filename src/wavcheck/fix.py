@@ -1,6 +1,6 @@
-from .read import WavMetadata
+from .data import InternalState
 
 
-def maybe_fix_wav_files(wav_list: list[WavMetadata]):
+def maybe_fix_wav_files(state: InternalState):
     """If applicable, prompts user to fix certain issues with WAV files."""
     # TODO: Implement.
