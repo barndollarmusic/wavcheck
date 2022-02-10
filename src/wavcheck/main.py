@@ -28,7 +28,6 @@ parser.add_argument("dir", nargs="?", default=".",
 
 def cli():
     """Command-line interface."""
-
     # Parse command-line arguments for input directory to find WAV files in.
     args = parser.parse_args()
 

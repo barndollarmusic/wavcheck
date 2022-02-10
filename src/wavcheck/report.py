@@ -85,6 +85,8 @@ def print_report(state: InternalState):
     # Cross-file checks:
     for cross_check in state.failed_cross_checks:
         _print_cross_check(cross_check, state)
+    
+    print()
 
     # Per-file checks:
     for filename in state.wav_files:

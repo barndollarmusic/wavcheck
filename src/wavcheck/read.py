@@ -123,4 +123,4 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
 
 
 def _ascii_str(data: bytes) -> str:
-    return data.decode("ascii").rstrip("\0")
+    return data.decode("iso-8859-1").rstrip("\0")

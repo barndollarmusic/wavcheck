@@ -41,6 +41,7 @@ class WavMetadata:
 
     def __init__(self, path: pathlib.Path):
         self.path = path
+        self.bwf_data = None
 
 
 @enum.unique

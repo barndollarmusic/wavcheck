@@ -34,8 +34,7 @@ def wall_secs_to_durstr(wall_secs: float) -> str:
 
     # Output hh only if non-zero. No zero padding.
     if hh > 0:
-        output += hh
-        output += "h "
+        output += f"{hh}h "
 
     # Output mm only if non-zero. Zero pad if needed if there are hours.
     if hh > 0 or mm > 0:
