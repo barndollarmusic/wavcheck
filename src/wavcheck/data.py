@@ -1,8 +1,22 @@
 import enum
 import pathlib
 
+from .timecode import FrameRate
+
 # The number of bits in a byte.
 BITS_PER_BYTE = 8
+
+
+class Context:
+    """Contextual options and data used across this tool."""
+    dir: pathlib.Path
+    verbose: bool
+    frame_rate: FrameRate
+
+    def __init__(self, dir: pathlib.Path, verbose: bool):
+        self.dir = dir
+        self.verbose = verbose
+        self.frame_rate = None  # Filled in later.
 
 
 @enum.unique

@@ -1,13 +1,103 @@
 import chunk
 import os
 import pathlib
+import re
 import struct
+import sys
 
-from .data import BwfMetadata, FmtMetadata, InternalState, SupportedFormatTag, WavFileState, WavMetadata
+from .data import BwfMetadata, Context, FmtMetadata, InternalState, SupportedFormatTag, WavFileState, WavMetadata
+from .prompt import prompt_framerate, prompt_write_framerate_file
+from .timecode import FrameRate, FrameRateMatchLevel, parse_framerate_within
+from .write import write_framerate_file
 
 
-# Length of b"RIFF", <ChunkSize>, and b"WAVE" header.
-_WAV_HDR_LEN_BYTES = 12
+def read_or_prompt_framerate(ctx: Context, framerate_input: str) -> FrameRate:
+    """Reads framerate input via argument, file, or prompts user for it."""
+    # If user provided a -f, --framerate arg input, use it.
+    if len(framerate_input) >= 1:
+        return _read_framerate_from_arg_or_die(ctx, framerate_input)
+
+    # If not, look for FRAMERATE.txt (or similarly named) within dir.
+    frame_rate = _maybe_read_framerate_from_default_file(ctx)
+    if frame_rate is not None:
+        return frame_rate
+
+    # Otherwise, ask the user to just tell us what the framerate is.
+    frame_rate = prompt_framerate()
+
+    # And see if they want to write their choice to FRAMERATE.txt.
+    if prompt_write_framerate_file():
+        write_framerate_file(ctx, frame_rate)
+
+    return frame_rate
+
+
+def _read_framerate_from_arg_or_die(ctx: Context, framerate_input: str) -> FrameRate:
+    """Tries to read framerate from provided arg, or exits with failure."""
+    # See if argument directly specified a framerate:
+    frame_rate = parse_framerate_within(framerate_input, FrameRateMatchLevel.REQUIRE_FULL_MATCH)
+    if frame_rate is not None:
+        return frame_rate
+    
+    # Otherwise, see if this argument names a file.
+    # If relative, interpret relative to dir.
+    path = pathlib.Path(framerate_input)
+    path = path if path.is_absolute() else ctx.dir.joinpath(path)
+    path = path.resolve()
+    if not path.exists() or not path.is_file():
+        sys.exit((f"[wavcheck] ERROR: Trying to find a framerate in {path}, "
+                  "but it doesn't exist as a file"))
+    
+    return _read_framerate_from_file_or_die(path)
+
+
+_FRAMERATE_LABEL_PATTERN = r"frame[-_\s]*rate"
+
+
+def _maybe_read_framerate_from_default_file(ctx: Context) -> FrameRate:
+    """Tries to read framerate from FRAMERATE.txt or similar in ctx.dir."""
+    candidate_file: pathlib.Path = None
+    with os.scandir(ctx.dir) as entries:
+        for entry in entries:
+            if entry.is_file() and re.search(_FRAMERATE_LABEL_PATTERN, str(entry.name), re.IGNORECASE):
+                candidate_file = pathlib.Path(entry.path)
+                break
+    if candidate_file is None:
+        return None
+
+    return _read_framerate_from_file_or_die(candidate_file)
+
+
+def _read_framerate_from_file_or_die(file: pathlib.Path):
+    """Reads framerate from file (name or contents), or exits with failure."""
+    print(f"[wavcheck] Looking for a framerate within {file} ...")
+
+    # See if framerate is directly contained in the filename.
+    try:
+        frame_rate = parse_framerate_within(file.name)
+        if frame_rate is not None:
+            return frame_rate
+    except Exception:
+        pass
+
+    # Search file contents.
+    with open(file, "r") as f:
+        # Look for a line of form "Framerate: <framerate>" (or similar).
+        for line in f:
+            match = re.search(_FRAMERATE_LABEL_PATTERN, line, re.IGNORECASE)
+            if match:
+                frame_rate = parse_framerate_within(line)
+                break
+
+        # Otherwise, see if entire file contents match.
+        if frame_rate is None:
+            f.seek(0)
+            frame_rate = parse_framerate_within(f.read(),
+                                                FrameRateMatchLevel.REQUIRE_FULL_MATCH)
+
+    if frame_rate is None:
+        sys.exit(f"[wavcheck] Unable to find valid framerate in {file}")
+    return frame_rate
 
 
 def read_wav_files(dir: pathlib.Path, verbose: bool) -> InternalState:
@@ -24,6 +114,10 @@ def read_wav_files(dir: pathlib.Path, verbose: bool) -> InternalState:
                 result.wav_files[p.name] = WavFileState()
                 result.wav_files[p.name].metadata = _read_wav_file(p)
     return result
+
+
+# Length of b"RIFF", <ChunkSize>, and b"WAVE" header.
+_WAV_HDR_LEN_BYTES = 12
 
 
 def _read_wav_file(path: pathlib.Path) -> WavMetadata:
