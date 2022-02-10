@@ -40,7 +40,7 @@ def cli():
 
     # Read all WAV files in directory and check them for issues.
     state = read_wav_files(d)
-    status = check_wav_files(state)
+    check_wav_files(state)
 
     if args.verbose:
         print_verbose_info(state)
@@ -49,4 +49,4 @@ def cli():
     # If applicable, prompt user to fix any correctible problems.
     maybe_fix_wav_files(state)
 
-    sys.exit(status)
+    sys.exit(state.warning_count())
