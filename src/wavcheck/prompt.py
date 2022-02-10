@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import sys
 
 from .timecode import DropType, FrameRate, FramesPerSec

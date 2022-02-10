@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import sys
 
 _MIN_PYTHON_VER = (3, 6)

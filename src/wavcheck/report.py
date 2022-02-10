@@ -1,14 +1,18 @@
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import collections
 import sys
 
-from .data import BwfMetadata, CrossFileCheck, InternalState, KSDATAFORMAT_SUBTYPE_PCM, SupportedFormatTag, WavFileCheck, WavFileState, WavMetadata
+from .data import BwfMetadata, Context, CrossFileCheck, InternalState, KSDATAFORMAT_SUBTYPE_PCM, SupportedFormatTag, WavFileCheck, WavFileState, WavMetadata
 from .timecode import wall_secs_to_durstr
 
 # TODO: Use a terminal color output library like Colorama to add colorful text
 # for all print() calls.
 
 
-def print_verbose_info(state: InternalState):
+def print_verbose_info(ctx: Context, state: InternalState):
     """Prints verbose info for each read WAV file."""
     print()
     print("================================================================================")
@@ -66,7 +70,7 @@ def _loudness_summary(bwf_data: BwfMetadata) -> str:
             f"P {bwf_data.max_dbtp} dBTP")
 
 
-def print_report(state: InternalState):
+def print_report(ctx: Context, state: InternalState):
     """Prints summary information based on checks."""
     num_warnings = state.warning_count()
     if num_warnings == 0:

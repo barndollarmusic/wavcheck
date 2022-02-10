@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import chunk
 import os
 import pathlib
@@ -100,15 +104,15 @@ def _read_framerate_from_file_or_die(file: pathlib.Path):
     return frame_rate
 
 
-def read_wav_files(dir: pathlib.Path, verbose: bool) -> InternalState:
+def read_wav_files(ctx: Context) -> InternalState:
     """Reads metadata for all WAV files in the given dir."""
-    print(f"[wavcheck] Reading .wav files in '{dir}' ...")
+    print(f"[wavcheck] Reading .wav files in '{ctx.dir}' ...")
 
     result = InternalState()
-    with os.scandir(dir) as entries:
+    with os.scandir(ctx.dir) as entries:
         for entry in entries:
             if entry.is_file() and str(entry.name).endswith(".wav"):
-                if verbose:
+                if ctx.verbose:
                     print(f"[wavcheck] Reading {entry.name} ...")
                 p = pathlib.Path(entry.path).resolve()
                 result.wav_files[p.name] = WavFileState()

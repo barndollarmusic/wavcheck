@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import collections
 import sys
 
-from .data import KSDATAFORMAT_SUBTYPE_PCM, CrossFileCheck, InternalState, SupportedFormatTag, WavFileCheck, WavFileState
+from .data import KSDATAFORMAT_SUBTYPE_PCM, Context, CrossFileCheck, InternalState, SupportedFormatTag, WavFileCheck, WavFileState
 
 
-def check_wav_files(state: InternalState):
+def check_wav_files(ctx: Context, state: InternalState):
     """Checks WAV files for potential issues."""
     if len(state.wav_files) == 0:
         sys.exit(

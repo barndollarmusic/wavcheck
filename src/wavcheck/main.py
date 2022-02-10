@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
 import pathlib
 import sys
@@ -45,15 +49,15 @@ def cli():
     print(f"[wavcheck] Interpreting timecodes using frame rate {ctx.frame_rate}")
 
     # Read all WAV files in directory and check them for issues.
-    state = read_wav_files(d, args.verbose)
+    state = read_wav_files(ctx)
     print(f"[wavcheck] Read {len(state.wav_files)} .wav files")
-    check_wav_files(state)
+    check_wav_files(ctx, state)
 
     if args.verbose:
-        print_verbose_info(state)
-    print_report(state)
+        print_verbose_info(ctx, state)
+    print_report(ctx, state)
 
     # If applicable, prompt user to fix any correctible problems.
-    maybe_fix_wav_files(state)
+    maybe_fix_wav_files(ctx, state)
 
     sys.exit(state.warning_count())
