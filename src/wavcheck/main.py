@@ -30,6 +30,7 @@ def cli():
     """Command-line interface."""
     # Parse command-line arguments for input directory to find WAV files in.
     args = parser.parse_args()
+    args.verbose = args.verbose or False
 
     d = pathlib.Path(args.dir).resolve()
     if not d.exists():
@@ -38,7 +39,7 @@ def cli():
         sys.exit("[wavcheck] ERROR: '%s' is not a directory" % d)
 
     # Read all WAV files in directory and check them for issues.
-    state = read_wav_files(d)
+    state = read_wav_files(d, args.verbose)
     print(f"[wavcheck] Read {len(state.wav_files)} .wav files")
     check_wav_files(state)
 
