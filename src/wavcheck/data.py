@@ -65,7 +65,7 @@ class WavFileState:
     """Maintains per-file state throughout each step in this program."""
     metadata: WavMetadata
     failed_checks: list[WavFileCheck]
-    
+
     def __init__(self):
         self.failed_checks = []
 
@@ -78,7 +78,7 @@ class InternalState:
     def __init__(self):
         self.wav_files = {}
         self.failed_cross_checks = []
-    
+
     def warning_count(self):
         num_warnings = 0
 

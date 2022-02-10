@@ -93,7 +93,8 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
     bwf_data = bwf_chunk.read()
 
     coding_history_offset = struct.calcsize(_BWF_STRUCT_PACK_FMT)
-    bwf_fields = struct.unpack(_BWF_STRUCT_PACK_FMT, bwf_data[:coding_history_offset])
+    bwf_fields = struct.unpack(
+        _BWF_STRUCT_PACK_FMT, bwf_data[:coding_history_offset])
 
     result = BwfMetadata()
     result.description = _ascii_str(bwf_fields[0])
@@ -106,7 +107,8 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
 
     if result.version >= 1:
         result.umid = bwf_fields[7]
-        result.umid_base64 = base64.standard_b64encode(result.umid).decode("ascii")
+        result.umid_base64 = base64.standard_b64encode(
+            result.umid).decode("ascii")
 
     if result.version >= 2:
         result.integrated_lufs = float(bwf_fields[8]) / 100.0
@@ -115,7 +117,8 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
         result.max_momentary_lufs = float(bwf_fields[11]) / 100.0
         result.max_short_term_lufs = float(bwf_fields[12]) / 100.0
 
-    result.coding_history = _ascii_str(bwf_data[coding_history_offset:]).rstrip("\r\n")
+    result.coding_history = _ascii_str(
+        bwf_data[coding_history_offset:]).rstrip("\r\n")
     return result
 
 

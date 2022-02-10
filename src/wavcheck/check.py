@@ -23,7 +23,8 @@ def check_wav_files(state: InternalState):
 
         bit_depths.add(wav_file.metadata.bit_depth)
         sample_rates.add(wav_file.metadata.sample_rate_hz)
-        if not WavFileCheck.MISSING_UMID in wav_file.failed_checks:
+        if (wav_file.metadata.bwf_data is not None
+                and not WavFileCheck.MISSING_UMID in wav_file.failed_checks):
             umid_counts[wav_file.metadata.bwf_data.umid_base64] += 1
 
     # Cross-file checks:
@@ -64,10 +65,10 @@ def _check_wav_file(wav_state: WavFileState):
 
     if (bwf_data.version == 0 or _is_all_zeros(bwf_data.umid)):
         wav_state.failed_checks.append(WavFileCheck.MISSING_UMID)
-    
+
     if bwf_data.version < 2:
         return
-    
+
     if (bwf_data.max_dbtp >= -0.3
             or bwf_data.max_momentary_lufs >= -3.0
             or bwf_data.max_short_term_lufs >= -6.0
