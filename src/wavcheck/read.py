@@ -12,7 +12,7 @@ _WAV_HDR_LEN_BYTES = 12
 
 def read_wav_files(dir: pathlib.Path, verbose: bool) -> InternalState:
     """Reads metadata for all WAV files in the given dir."""
-    print("[wavcheck] Reading .wav files in '%s' ..." % dir)
+    print(f"[wavcheck] Reading .wav files in '{dir}' ...")
 
     result = InternalState()
     with os.scandir(dir) as entries:

@@ -31,9 +31,9 @@ def cli():
 
     d = pathlib.Path(args.dir).resolve()
     if not d.exists():
-        sys.exit("[wavcheck] ERROR: input dir does not exist: '%s'" % d)
+        sys.exit(f"[wavcheck] ERROR: input dir does not exist: '{d}'")
     if not d.is_dir():
-        sys.exit("[wavcheck] ERROR: '%s' is not a directory" % d)
+        sys.exit(f"[wavcheck] ERROR: '{d}' is not a directory")
 
     # Read all WAV files in directory and check them for issues.
     state = read_wav_files(d, args.verbose)
