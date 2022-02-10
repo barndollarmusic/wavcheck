@@ -80,9 +80,18 @@ class FrameRate:
 
     def fps(self) -> FramesPerSec:
         return self._fps
+    
+    def int_fps(self) -> int:
+        rate_info = _FRAME_RATES[self._fps]
+        return math.ceil(float(rate_info.frames) / rate_info.per_wall_secs)
 
     def drop_type(self) -> DropType:
         return self._drop_type
+    
+    def drop_frames_per_10mins(self) -> int:
+        if self._drop_type == DropType.NON_DROP:
+            return 0
+        return _DROP_FRAMES_PER_10MINS[self._fps]
 
     def __str__(self) -> str:
         return f"{self._fps} {self._drop_type}"
@@ -205,3 +214,91 @@ def wall_secs_to_durstr(wall_secs: float) -> str:
     output += "s"
 
     return output
+
+
+class Timecode:
+    """Numerical timecode value with HH:MM:SS:FF."""
+    hh: int
+    mm: int
+    ss: int
+    ff: int
+
+    def __init__(self, hh: int, mm: int, ss: int, ff: int):
+        # Note: Validation happens elsewhere.
+        self.hh = hh
+        self.mm = mm
+        self.ss = ss
+        self.ff = ff
+    
+    def __str__(self) -> str:
+        return f"{self.hh:02}:{self.mm:02}:{self.ss:02}:{self.ff:02}"
+
+
+def _frames_per_dropped_block(fr: FrameRate) -> int:
+    # A block of frames is dropped from the first second (SS=00) of 9 out of
+    # every 10 minutes. For 29.97 fps, for example, there are 18 frames dropped
+    # per 10 minutes, in blocks of 2 frames at a time.
+    return fr.drop_frames_per_10mins() // 9
+
+
+def wall_secs_to_tc_left(wall_secs: float, fr: FrameRate) -> Timecode:
+    """Returns timecode of closest frame before or exactly equal to given wall_secs."""
+    fractional_frame_idx = _wall_secs_to_fractional_frame_idx(wall_secs, fr)
+    frame_idx = math.floor(fractional_frame_idx)
+    return _frame_idx_to_tc(frame_idx, fr)
+
+
+def _wall_secs_to_fractional_frame_idx(wall_secs: float, fr: FrameRate) -> float:
+    rate_info = _FRAME_RATES[fr.fps()]
+    return wall_secs * rate_info.frames / rate_info.per_wall_secs
+
+
+def _frame_idx_to_tc(frame_idx: int, fr: FrameRate) -> Timecode:
+    if frame_idx < 0:
+        raise Exception("Negative frame indexes are not supported")
+    
+    frames_per_min = fr.int_fps() * _SECS_PER_MIN
+    frames_per_hr = frames_per_min * _MINS_PER_HR
+
+    # If this is a drop frame standard, adjust for any dropped frames.
+    frames_remaining = frame_idx + _frames_dropped_before_frame_idx(frame_idx, fr)
+
+    hh = math.floor(float(frames_remaining) / frames_per_hr)
+    frames_remaining -= hh * frames_per_hr
+
+    mm = math.floor(float(frames_remaining) / frames_per_min)
+    frames_remaining -= mm * frames_per_min
+
+    ss = math.floor(float(frames_remaining) / fr.int_fps())
+    frames_remaining -= ss * fr.int_fps()
+
+    ff = frames_remaining
+    return Timecode(hh, mm, ss, ff)
+
+
+def _frames_dropped_before_frame_idx(frame_idx: int, fr: FrameRate) -> int:
+    if fr.drop_type() == DropType.NON_DROP:
+        return 0
+    
+    frames_per_non_drop_min = fr.int_fps() * _SECS_PER_MIN
+    frames_per_dropped_block = _frames_per_dropped_block(fr)
+    frames_per_drop_min = frames_per_non_drop_min - frames_per_dropped_block
+
+    # Count # of full blocks of 10 minutes (of timecode, not wall time).
+    frames_per_10mins = 10 * frames_per_non_drop_min - fr.drop_frames_per_10mins()
+
+    frames_remaining = frame_idx
+    num_complete_10min_blocks = math.floor(float(frames_remaining) / frames_per_10mins)
+    frames_remaining -= frames_per_10mins * num_complete_10min_blocks
+
+    num_dropped_frames = num_complete_10min_blocks * fr.drop_frames_per_10mins()
+
+    if frames_remaining >= frames_per_non_drop_min:
+        # First minute of this 10 minute block has no dropped frames.
+        frames_remaining -= frames_per_non_drop_min
+
+        # Each complete drop minute plus the current minute drops one block of frames.
+        num_complete_drop_mins = math.floor(float(frames_remaining) / frames_per_drop_min)
+        num_dropped_frames += (num_complete_drop_mins + 1) * frames_per_dropped_block
+    
+    return num_dropped_frames
