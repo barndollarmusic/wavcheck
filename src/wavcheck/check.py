@@ -1,9 +1,7 @@
 import collections
 import sys
 
-from .data import CrossFileCheck, InternalState
-from .data import WavFileCheck
-from .data import WavFileState
+from .data import KSDATAFORMAT_SUBTYPE_PCM, CrossFileCheck, InternalState, SupportedFormatTag, WavFileCheck, WavFileState
 
 
 def check_wav_files(state: InternalState):
@@ -21,8 +19,8 @@ def check_wav_files(state: InternalState):
         wav_file = state.wav_files[filename]
         _check_wav_file(wav_file)
 
-        bit_depths.add(wav_file.metadata.bit_depth)
-        sample_rates.add(wav_file.metadata.sample_rate_hz)
+        bit_depths.add(wav_file.metadata.fmt_data.bit_depth)
+        sample_rates.add(wav_file.metadata.fmt_data.sample_rate_hz)
         if (wav_file.metadata.bwf_data is not None
                 and not WavFileCheck.MISSING_UMID in wav_file.failed_checks):
             umid_counts[wav_file.metadata.bwf_data.umid_hex] += 1
@@ -43,13 +41,19 @@ def _check_wav_file(wav_state: WavFileState):
     """Performs per-file checks for one WAV file."""
 
     # Basic WAV metadata checks:
-    if wav_state.metadata.bit_depth < 16:
+    if wav_state.metadata.fmt_data.format_tag == SupportedFormatTag.WAVE_FORMAT_EXTENSIBLE:
+        if wav_state.metadata.fmt_data.ext_sub_format != KSDATAFORMAT_SUBTYPE_PCM:
+            wav_state.failed_checks.append(WavFileCheck.NONSTANDARD_FORMAT)
+    elif wav_state.metadata.fmt_data.format_tag != SupportedFormatTag.WAVE_FORMAT_PCM:
+        wav_state.failed_checks.append(WavFileCheck.NONSTANDARD_FORMAT)
+
+    if wav_state.metadata.fmt_data.bit_depth < 16:
         wav_state.failed_checks.append(WavFileCheck.LOW_BIT_DEPTH)
 
-    if wav_state.metadata.sample_rate_hz < 44100:
+    if wav_state.metadata.fmt_data.sample_rate_hz < 44100:
         wav_state.failed_checks.append(WavFileCheck.LOW_SAMPLE_RATE)
 
-    if wav_state.metadata.duration_secs < 1.0:
+    if wav_state.metadata.duration_secs() < 1.0:
         wav_state.failed_checks.append(WavFileCheck.VERY_SHORT_DURATION)
 
     # Broadcast Wave Format checks:

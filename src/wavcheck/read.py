@@ -2,14 +2,9 @@ import chunk
 import os
 import pathlib
 import struct
-import wave
 
-from .data import BwfMetadata
-from .data import InternalState
-from .data import WavMetadata
-from .data import WavFileState
+from .data import BwfMetadata, FmtMetadata, InternalState, SupportedFormatTag, WavFileState, WavMetadata
 
-_BITS_PER_BYTE = 8
 
 # Length of b"RIFF", <ChunkSize>, and b"WAVE" header.
 _WAV_HDR_LEN_BYTES = 12
@@ -37,27 +32,74 @@ def _read_wav_file(path: pathlib.Path) -> WavMetadata:
     metadata = WavMetadata(path)
 
     with open(path, mode='rb') as file:
-        # TODO: Make sure Python's wave library can handle surround WAV formats.
-        # Read basic WAV file format metadata.
-        with wave.open(file, mode='rb') as wave_file:
-            metadata.num_chans = wave_file.getnchannels()
-            metadata.bit_depth = _BITS_PER_BYTE * wave_file.getsampwidth()
-            metadata.sample_rate_hz = wave_file.getframerate()
-            metadata.duration_secs = float(
-                wave_file.getnframes()) / wave_file.getframerate()
-
         # Read Broadcast Wave Format (BWF) chunk metadata, if present.
         file.seek(_WAV_HDR_LEN_BYTES)
         while True:
             try:
                 subchunk = chunk.Chunk(file, bigendian=False)
+                if subchunk.getname() == b"fmt ":
+                    metadata.fmt_data = _read_fmt_metadata(subchunk)
                 if subchunk.getname() == b"bext":
                     metadata.bwf_data = _read_bwf_metadata(subchunk)
+                if subchunk.getname() == b"data":
+                    # TODO: Support RF64 long WAV files.
+                    metadata.data_size_bytes = subchunk.getsize()
                 subchunk.skip()  # Advance file to next subchunk.
             except EOFError:
                 break
 
     return metadata
+
+
+_FMT_STRUCT_PACK_FMT = (
+    "<"      # Little endian.
+
+    # Common Fields:
+    "H"      # [0] FormatTag (uint16)
+    "H"      # [1] NumChannels (uint16)
+    "I"      # [2] SamplesPerSec (uint32)
+    "I"      # [3] AvgBytesPerSec (uint32)
+    "H"      # [4] BlockAlign (uint16)
+
+    # At leats valid for WAVE_FORMAT_PCM:
+    "H"      # [5] BitsPerSample (uint16)
+)
+
+
+_FMT_EXTENSIBLE_PACK_FMT = (
+    "<"      # Little endian.
+    "H"      # [0] ExtraBytes (uint16)
+    "H"      # [1] ValidBitsPerSample (uint16)
+    "I"      # [2] ChannelMask (uint32)
+    "16s"    # [3] SubFormat GUID (byte[16])
+)
+
+
+def _read_fmt_metadata(fmt_chunk: chunk.Chunk) -> FmtMetadata:
+    """Populates fmt metadata."""
+    fmt_data = fmt_chunk.read()
+
+    common_field_size = struct.calcsize(_FMT_STRUCT_PACK_FMT)
+    fmt_fields = struct.unpack(
+        _FMT_STRUCT_PACK_FMT, fmt_data[:common_field_size])
+
+    result = FmtMetadata()
+    result.format_tag = fmt_fields[0]
+    result.num_chans = fmt_fields[1]
+    result.bit_depth = fmt_fields[5]
+    result.sample_rate_hz = fmt_fields[2]
+
+    # For WAVE_FORMAT_EXTENSIBLE, read the extra fields.
+    if result.format_tag == SupportedFormatTag.WAVE_FORMAT_EXTENSIBLE:
+        ext_field_size = struct.calcsize(_FMT_EXTENSIBLE_PACK_FMT)
+        ext_field_end = common_field_size + ext_field_size
+        ext_fields = struct.unpack(
+            _FMT_EXTENSIBLE_PACK_FMT, fmt_data[common_field_size:ext_field_end])
+
+        result.bit_depth = ext_fields[1]  # May reduce actual bits per sample.
+        result.ext_sub_format = ext_fields[3]
+
+    return result
 
 
 _BWF_STRUCT_PACK_FMT = (

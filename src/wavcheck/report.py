@@ -1,8 +1,7 @@
 import collections
-from gc import collect
 import sys
 
-from .data import BwfMetadata, CrossFileCheck, InternalState, WavFileCheck, WavFileState, WavMetadata
+from .data import BwfMetadata, CrossFileCheck, InternalState, KSDATAFORMAT_SUBTYPE_PCM, SupportedFormatTag, WavFileCheck, WavFileState, WavMetadata
 from .timecode import wall_secs_to_durstr
 
 # TODO: Use a terminal color output library like Colorama to add colorful text
@@ -21,10 +20,10 @@ def print_verbose_info(state: InternalState):
         wav_file = state.wav_files[filename]
 
         print(filename)
-        print((f"  {wav_file.metadata.bit_depth} bit, "
-               f"{wav_file.metadata.sample_rate_hz / 1000.0} kHz, "
-               f"{wav_file.metadata.num_chans} channels, "
-               f"{wall_secs_to_durstr(wav_file.metadata.duration_secs)}"))
+        print((f"  {wav_file.metadata.fmt_data.bit_depth} bit, "
+               f"{wav_file.metadata.fmt_data.sample_rate_hz / 1000.0} kHz, "
+               f"{wav_file.metadata.fmt_data.num_chans} channels, "
+               f"{wall_secs_to_durstr(wav_file.metadata.duration_secs())}"))
 
         _print_verbose_bwf_info(wav_file.metadata)
         print()
@@ -43,7 +42,7 @@ def _print_verbose_bwf_info(wav_data: WavMetadata):
     # TODO: Read or input frame rate information from the user to support
     # outputting timecode values here.
     start_samples = bwf_data.samples_since_origin
-    start_secs = float(start_samples) / wav_data.sample_rate_hz
+    start_secs = float(start_samples) / wav_data.fmt_data.sample_rate_hz
     print((f"    [Time] Start: {start_samples} samples "
            f"({wall_secs_to_durstr(start_secs)} wall time) after 00:00:00:00"))
 
@@ -83,7 +82,7 @@ def print_report(state: InternalState):
     # Cross-file checks:
     for cross_check in state.failed_cross_checks:
         _print_cross_check(cross_check, state)
-    
+
     print()
 
     # Per-file checks:
@@ -104,14 +103,16 @@ def _print_cross_check(cross_check: CrossFileCheck, state: InternalState):
     if cross_check == CrossFileCheck.MULTIPLE_BIT_DEPTHS:
         bit_depths: set[int] = set()
         for filename in state.wav_files:
-            bit_depths.add(state.wav_files[filename].metadata.bit_depth)
+            bit_depths.add(
+                state.wav_files[filename].metadata.fmt_data.bit_depth)
         print(f"!! Multiple bit depths found: {bit_depths}")
         return
 
     if cross_check == CrossFileCheck.MULTIPLE_SAMPLE_RATES:
         sample_rates: set[int] = set()
         for filename in state.wav_files:
-            sample_rates.add(state.wav_files[filename].metadata.sample_rate_hz)
+            sample_rates.add(
+                state.wav_files[filename].metadata.fmt_data.sample_rate_hz)
         print(f"!! Multiple sample rates found: {sample_rates}")
         return
 
@@ -133,16 +134,27 @@ def _print_file_check(file_check: WavFileCheck, wav_state: WavFileState):
     """Prints warning information for the given file-specific check."""
     metadata = wav_state.metadata
 
+    if file_check == WavFileCheck.NONSTANDARD_FORMAT:
+        if metadata.fmt_data.format_tag == SupportedFormatTag.WAVE_FORMAT_EXTENSIBLE:
+            print(("    WAVE_FORMAT_EXTENSIBLE should be used with "
+                   f"KSDATAFORMAT_SUBTYPE_PCM (0x{KSDATAFORMAT_SUBTYPE_PCM.hex().upper()}); "
+                   f"found: 0x{metadata.fmt_data.ext_sub_format.hex().upper()}"))
+            return
+        else:
+            print(
+                f"    Nonstandard FormatTag: 0x{format(metadata.fmt_data.format_tag, 'X')}")
+            return
+
     if file_check == WavFileCheck.LOW_BIT_DEPTH:
-        print(f"    Low bit-depth: {metadata.bit_depth}")
+        print(f"    Low bit-depth: {metadata.fmt_data.bit_depth}")
         return
 
     if file_check == WavFileCheck.LOW_SAMPLE_RATE:
-        print(f"    Low sample rate: {metadata.sample_rate_hz}")
+        print(f"    Low sample rate: {metadata.fmt_data.sample_rate_hz}")
         return
 
     if file_check == WavFileCheck.VERY_SHORT_DURATION:
-        print(f"    Very short duration: {metadata.duration_secs} secs")
+        print(f"    Very short duration: {metadata.duration_secs()} secs")
         return
 
     if file_check == WavFileCheck.MISSING_BWF:

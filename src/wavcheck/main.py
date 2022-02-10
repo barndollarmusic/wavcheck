@@ -2,13 +2,10 @@ import argparse
 import pathlib
 import sys
 
-from wavcheck.report import print_report
-
 from .check import check_wav_files
 from .fix import maybe_fix_wav_files
 from .read import read_wav_files
-from .report import print_report
-from .report import print_verbose_info
+from .report import print_report, print_verbose_info
 
 __name__ = "wavcheck"
 __version__ = "1.0.0"
