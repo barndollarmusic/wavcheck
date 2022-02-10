@@ -45,7 +45,7 @@ def _print_verbose_bwf_info(wav_data: WavMetadata):
     start_samples = bwf_data.samples_since_origin
     start_secs = float(start_samples) / wav_data.sample_rate_hz
     print((f"    [Time] Start: {start_samples} samples "
-           f"({wall_secs_to_durstr(start_secs)}) after 00:00:00:00"))
+           f"({wall_secs_to_durstr(start_secs)} wall time) after 00:00:00:00"))
 
     print((f"    [Orig] {bwf_data.originator} {bwf_data.originator_reference} "
            f"{bwf_data.origination_date} {bwf_data.origination_time}"))
@@ -53,7 +53,7 @@ def _print_verbose_bwf_info(wav_data: WavMetadata):
     print(f"    [Hist] {bwf_data.coding_history}")
 
     if bwf_data.version >= 1:
-        print(f"    [UMID] {bwf_data.umid_base64}")
+        print(f"    [UMID] {bwf_data.umid_hex}")
     if bwf_data.version >= 2:
         print(f"    [Loud] {_loudness_summary(bwf_data)}")
 
@@ -69,8 +69,6 @@ def _loudness_summary(bwf_data: BwfMetadata) -> str:
 
 def print_report(state: InternalState):
     """Prints summary information based on checks."""
-    print(f"[wavcheck] Read {len(state.wav_files)} .wav files")
-
     num_warnings = state.warning_count()
     if num_warnings == 0:
         print("[wavcheck] SUCCESS: No warnings found. Happy scoring :)\n")
@@ -122,7 +120,7 @@ def _print_cross_check(cross_check: CrossFileCheck, state: InternalState):
         for filename in state.wav_files:
             metadata = state.wav_files[filename].metadata
             if metadata.bwf_data is not None and metadata.bwf_data.version >= 1:
-                umids[metadata.bwf_data.umid_base64].append(filename)
+                umids[metadata.bwf_data.umid_hex].append(filename)
 
         for umid in umids:
             if len(umids[umid]) >= 2:

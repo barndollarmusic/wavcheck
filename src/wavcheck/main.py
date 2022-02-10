@@ -39,6 +39,7 @@ def cli():
 
     # Read all WAV files in directory and check them for issues.
     state = read_wav_files(d)
+    print(f"[wavcheck] Read {len(state.wav_files)} .wav files")
     check_wav_files(state)
 
     if args.verbose:

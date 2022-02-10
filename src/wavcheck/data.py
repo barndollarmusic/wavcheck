@@ -16,7 +16,7 @@ class BwfMetadata:
 
     # For BWF Version 1+:
     umid: bytes  # 64 bytes.
-    umid_base64: str
+    umid_hex: str
 
     # For BWF Version 2+:
     integrated_lufs: float

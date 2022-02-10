@@ -1,4 +1,3 @@
-import base64
 import chunk
 import os
 import pathlib
@@ -97,18 +96,17 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
         _BWF_STRUCT_PACK_FMT, bwf_data[:coding_history_offset])
 
     result = BwfMetadata()
-    result.description = _ascii_str(bwf_fields[0])
-    result.originator = _ascii_str(bwf_fields[1])
-    result.originator_reference = _ascii_str(bwf_fields[2])
-    result.origination_date = _ascii_str(bwf_fields[3])
-    result.origination_time = _ascii_str(bwf_fields[4])
+    result.description = _safe_str(bwf_fields[0])
+    result.originator = _safe_str(bwf_fields[1])
+    result.originator_reference = _safe_str(bwf_fields[2])
+    result.origination_date = _safe_str(bwf_fields[3])
+    result.origination_time = _safe_str(bwf_fields[4])
     result.samples_since_origin = bwf_fields[5]
     result.version = bwf_fields[6]
 
     if result.version >= 1:
         result.umid = bwf_fields[7]
-        result.umid_base64 = base64.standard_b64encode(
-            result.umid).decode("ascii")
+        result.umid_hex = result.umid.hex().upper()
 
     if result.version >= 2:
         result.integrated_lufs = float(bwf_fields[8]) / 100.0
@@ -117,10 +115,20 @@ def _read_bwf_metadata(bwf_chunk: chunk.Chunk) -> BwfMetadata:
         result.max_momentary_lufs = float(bwf_fields[11]) / 100.0
         result.max_short_term_lufs = float(bwf_fields[12]) / 100.0
 
-    result.coding_history = _ascii_str(
+    result.coding_history = _safe_str(
         bwf_data[coding_history_offset:]).rstrip("\r\n")
     return result
 
 
-def _ascii_str(data: bytes) -> str:
-    return data.decode("iso-8859-1").rstrip("\0")
+def _safe_str(data: bytes) -> str:
+    last_nonzero_pos = 0
+    for idx in reversed(range(len(data))):
+        if data[idx] != 0:
+            last_nonzero_pos = idx
+            break
+
+    # Interpret as ISO-8859-1 for a more forgiving ASCII.
+    raw_str = data[:last_nonzero_pos + 1].decode("iso-8859-1").rstrip("\0")
+
+    # But escape non-printable characters.
+    return raw_str.encode("unicode_escape").decode("iso-8859-1")

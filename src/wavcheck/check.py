@@ -25,7 +25,7 @@ def check_wav_files(state: InternalState):
         sample_rates.add(wav_file.metadata.sample_rate_hz)
         if (wav_file.metadata.bwf_data is not None
                 and not WavFileCheck.MISSING_UMID in wav_file.failed_checks):
-            umid_counts[wav_file.metadata.bwf_data.umid_base64] += 1
+            umid_counts[wav_file.metadata.bwf_data.umid_hex] += 1
 
     # Cross-file checks:
     if len(bit_depths) >= 2:
