@@ -70,7 +70,8 @@ def prompt_should_fix_umids() -> bool:
 def prompt_should_append_filename_tcs() -> bool:
     """Asks user if they want to append any missing timecodes to filenames."""
     print(">>>>>>>>>> 📎 Looks like some filenames don't contain timecodes,")
-    answer = input("              would you like me to rename those files for you? [y/N] ")
+    answer = input(
+        "              would you like me to rename those files for you? [y/N] ")
     return answer.strip().lower().startswith("y")
 
 
@@ -85,11 +86,13 @@ def prompt_filename_suffix_format() -> FilenameTcFormat:
     print()
 
     try:
-        choice = int(input(">>>>>>>>>> Select a filename timecode suffix format (1-4): "))
+        choice = int(
+            input(">>>>>>>>>> Select a filename timecode suffix format (1-4): "))
         if choice < 1 or 4 < choice:
             raise Exception()
     except Exception:
-        sys.exit("[wavcheck] ERROR: Invalid filename timecode suffix format choice")
+        sys.exit(
+            "[wavcheck] ERROR: Invalid filename timecode suffix format choice")
 
     if choice == 1:
         return FilenameTcFormat.SPACE_NO_DOTS

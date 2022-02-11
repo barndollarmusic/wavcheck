@@ -128,7 +128,7 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
             and status_counts[TcFilenameStatus.IMPLICIT_MATCH] >= 1)):
         print("[wavcheck] Please fix existing filenames with timecode mismatches.")
         return
-    
+
     print()
 
     # If there were only implicit mismatches, these may not have been

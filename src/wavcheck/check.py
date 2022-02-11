@@ -79,7 +79,7 @@ def _check_wav_file(ctx: Context, wav_state: WavFileState):
 
     if (bwf_data.version == 0 or _is_all_zeros(bwf_data.umid)):
         wav_state.failed_checks.append(WavFileCheck.MISSING_UMID)
-    
+
     # Timecode in filename checks (ensure it matches BWF start time):
     tc_in_filename = wav_state.metadata.tc_in_filename
     if tc_in_filename is not None and tc_in_filename.tc != bwf_tc:

@@ -286,11 +286,12 @@ def _tc_to_frame_idx(tc: Timecode, fr: FrameRate) -> int:
         frame_idx -= tc.hh * frames_dropped_per_hr
 
         # Frames dropped from start of HH to start of this 10 minute block:
-        frame_idx -= math.floor(float(tc.mm) / 10) * fr.drop_frames_per_10mins()
+        frame_idx -= (math.floor(float(tc.mm) / 10)
+                      * fr.drop_frames_per_10mins())
 
         # Frames dropped since start of this 10 minute block:
         frame_idx -= (tc.mm % 10) * _frames_per_dropped_block(fr)
-    
+
     return frame_idx
 
 

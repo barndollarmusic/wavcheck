@@ -118,7 +118,7 @@ def read_wav_files(ctx: Context) -> InternalState:
                 p = pathlib.Path(entry.path).resolve()
                 result.wav_files[p.name] = WavFileState()
                 result.wav_files[p.name].metadata = _read_wav_file(p)
-    
+
     _clean_up_filename_tcs(result)
     return result
 
@@ -172,7 +172,7 @@ def _find_tc_in_filename(name: str) -> FilenameTimecode:
     if last_match:
         return FilenameTimecode(parse_timecode_str(last_match.group(1)),
                                 TcConfidence.IMPLICIT_NUMBERS_ONLY)
-    
+
     return None  # No timecode found.
 
 
@@ -312,7 +312,7 @@ def _clean_up_filename_tcs(state: InternalState):
                 and filename_tc.confidence == TcConfidence.EXPLICIT_TC_PREFIX):
             found_any_explicit = True
             break
-    
+
     # If any explicit TC-prefixed timecodes were detected in filenames, ignore
     # any implicit digit sequences that weren't TC prefixed.
     if found_any_explicit:
@@ -320,4 +320,5 @@ def _clean_up_filename_tcs(state: InternalState):
             filename_tc = state.wav_files[filename].metadata.tc_in_filename
             if (filename_tc is not None
                     and filename_tc.confidence == TcConfidence.IMPLICIT_NUMBERS_ONLY):
-                state.wav_files[filename].metadata.tc_in_filename = None  # Clear.
+                # Clear.
+                state.wav_files[filename].metadata.tc_in_filename = None
