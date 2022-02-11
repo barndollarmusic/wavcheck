@@ -110,12 +110,16 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
 
     # First take stock of what types of filename timecodes were present.
     num_fixable = 0
+    has_fractional_frame_errors = False
     for filename in state.wav_files:
-        status = _tc_filename_status(state.wav_files[filename])
+        wav_file = state.wav_files[filename]
+        status = _tc_filename_status(wav_file)
         if status.is_potentially_fixable():
             num_fixable += 1
         statuses[filename] = status
         status_counts[status] += 1
+        if WavFileCheck.FRACTIONAL_FRAME_START_TC in wav_file.failed_checks:
+            has_fractional_frame_errors = True
 
     # If there's nothing to automatically fix, bail out.
     if num_fixable == 0:
@@ -135,6 +139,11 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
     # interpreted correctly (less confident without explicit "TC" prefix).
     if status_counts[TcFilenameStatus.IMPLICIT_MISMATCH] >= 1:
         print("              (note potential existing filename timecode problems)")
+
+    # If there were fractional frame start times, the user also may not want to
+    # rename with these timecodes.
+    if has_fractional_frame_errors:
+        print("              (note fractional frame start time warnings)")
 
     # Ask user whether to rename fixable files and in what format.
     if not prompt_should_append_filename_tcs():
