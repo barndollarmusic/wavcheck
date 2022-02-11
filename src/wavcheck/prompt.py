@@ -56,3 +56,10 @@ def prompt_write_framerate_file() -> bool:
     print(">>>>>>>>>> 📎 So I don't have to ask next time, would you like me to")
     answer = input("              write that to a FRAMERATE.txt file? [y/N] ")
     return answer.strip().lower().startswith("y")
+
+
+def prompt_should_fix_umids() -> bool:
+    """Asks user if they want to make all UMIDs unique."""
+    print(">>>>>>>>>> 📎 Looks like you have non-unique UMIDs, would you like me to")
+    answer = input("              fix them to all be unique? [y/N] ")
+    return answer.strip().lower().startswith("y")

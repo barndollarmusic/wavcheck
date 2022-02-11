@@ -9,7 +9,7 @@ import re
 import struct
 import sys
 
-from .data import BwfMetadata, Context, FilenameTimecode, FmtMetadata, InternalState, SupportedFormatTag, TcConfidence, WavFileState, WavMetadata
+from .data import BwfMetadata, Context, FilenameTimecode, FmtMetadata, InternalState, SupportedFormatTag, TcConfidence, WavFileState, WavMetadata, WAV_HDR_LEN_BYTES
 from .prompt import prompt_framerate, prompt_write_framerate_file
 from .timecode import FrameRate, FrameRateMatchLevel, parse_framerate_within, parse_timecode_str
 from .write import write_framerate_file
@@ -123,18 +123,14 @@ def read_wav_files(ctx: Context) -> InternalState:
     return result
 
 
-# Length of b"RIFF", <ChunkSize>, and b"WAVE" header.
-_WAV_HDR_LEN_BYTES = 12
-
-
 def _read_wav_file(path: pathlib.Path) -> WavMetadata:
     """Reads metadata for the given WAV file."""
     metadata = WavMetadata(path)
     metadata.tc_in_filename = _find_tc_in_filename(path.name)
 
-    with open(path, mode='rb') as file:
+    with open(path, mode="rb") as file:
         # Read all relevant RIFF chunk metadata.
-        file.seek(_WAV_HDR_LEN_BYTES)
+        file.seek(WAV_HDR_LEN_BYTES)
         while True:
             try:
                 subchunk = chunk.Chunk(file, bigendian=False)

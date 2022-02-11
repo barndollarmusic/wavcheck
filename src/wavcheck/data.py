@@ -23,6 +23,10 @@ class Context:
         self.frame_rate = None  # Filled in later.
 
 
+# Length of b"RIFF", <ChunkSize>, and b"WAVE" header.
+WAV_HDR_LEN_BYTES = 12
+
+
 @enum.unique
 class SupportedFormatTag(enum.IntEnum):
     # The standard uncompressed PCM WAV format.
