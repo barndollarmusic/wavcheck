@@ -152,7 +152,9 @@ def _read_wav_file(path: pathlib.Path) -> WavMetadata:
     return metadata
 
 
-_TC_NUMBERS_FILENAME_PATTERN = r"\d?\d[-_. ]?\d\d[-_. ]?\d\d[-_. ]?\d\d"
+_TC_NUMBERS_NO_SEPARATORS = r"\d?\d\d\d\d\d\d\d"
+_TC_NUMBERS_SEPARATORS = r"\d?\d[-_. ]\d\d[-_. ]\d\d[-_. ]\d\d"
+_TC_NUMBERS_FILENAME_PATTERN = rf"(?:{_TC_NUMBERS_NO_SEPARATORS}|{_TC_NUMBERS_SEPARATORS})"
 _TC_EXPLICIT_FILENAME_PATTERN = re.compile(
     rf"TC[-_. ]*({_TC_NUMBERS_FILENAME_PATTERN})[^\d]", re.IGNORECASE)
 _TC_IMPLICIT_FILENAME_PATTERN = re.compile(
