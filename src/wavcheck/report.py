@@ -91,8 +91,7 @@ def print_report(ctx: Context, state: InternalState):
     """Prints summary information based on checks."""
     num_warnings = state.warning_count()
     if num_warnings == 0:
-        print("[wavcheck] SUCCESS: No warnings found. Happy scoring :)\n")
-        sys.exit(0)
+        return
 
     print()
     print("================================================================================")
@@ -207,6 +206,6 @@ def _print_file_check(ctx: Context, file_check: WavFileCheck, wav_state: WavFile
     if file_check == WavFileCheck.FILENAME_TC_MISMATCH:
         start_secs = wav_state.metadata.bwf_start_time_secs(ctx.frame_rate)
         bwf_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
-        print(f"    BWF: Start timecode {bwf_tc} (in {ctx.frame_rate})")
+        print(f"    BWF: Start timecode {bwf_tc} (in {ctx.frame_rate}) doesn't match")
         print(f"         file name's TC {metadata.tc_in_filename.tc}")
         return

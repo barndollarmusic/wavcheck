@@ -79,6 +79,11 @@ def _check_wav_file(ctx: Context, wav_state: WavFileState):
 
     if (bwf_data.version == 0 or _is_all_zeros(bwf_data.umid)):
         wav_state.failed_checks.append(WavFileCheck.MISSING_UMID)
+    
+    # Timecode in filename checks (ensure it matches BWF start time):
+    tc_in_filename = wav_state.metadata.tc_in_filename
+    if tc_in_filename is not None and tc_in_filename.tc != bwf_tc:
+        wav_state.failed_checks.append(WavFileCheck.FILENAME_TC_MISMATCH)
 
     if bwf_data.version < 2:
         return
@@ -88,11 +93,6 @@ def _check_wav_file(ctx: Context, wav_state: WavFileState):
             or bwf_data.max_short_term_lufs >= -6.0
             or bwf_data.integrated_lufs >= -9.0):
         wav_state.failed_checks.append(WavFileCheck.UNNATURALLY_LOUD)
-
-    # Timecode in filename checks (ensure it matches BWF start time):
-    tc_in_filename = wav_state.metadata.tc_in_filename
-    if tc_in_filename is not None and tc_in_filename.tc != bwf_tc:
-        wav_state.failed_checks.append(WavFileCheck.FILENAME_TC_MISMATCH)
 
 
 def _is_all_zeros(data: bytes) -> bool:

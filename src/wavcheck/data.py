@@ -104,6 +104,37 @@ class FilenameTimecode:
         self.confidence = confidence
 
 
+@enum.unique
+class FilenameTcFormat(enum.Enum):
+    # BASENAME TC01020304.wav:
+    SPACE_NO_DOTS = 1
+
+    # BASENAME_TC01020304.wav:
+    UNDERSCORE_NO_DOTS = 2
+
+    # BASENAME TC01.02.03.04.wav:
+    SPACE_WITH_DOTS = 3
+
+    # BASENAME_TC01.02.03.04.wav:
+    UNDERSCORE_WITH_DOTS = 4
+
+    def apply(self, filename: str, tc: Timecode) -> str:
+        assert filename.endswith(".wav")
+        new_name = filename.removesuffix(".wav")
+        new_name += "_TC" if self._use_underscore() else " TC"
+        new_name += str(tc).replace(":", "." if self._use_dots() else "")
+        new_name += ".wav"
+        return new_name
+
+    def _use_underscore(self) -> bool:
+        return (self == FilenameTcFormat.UNDERSCORE_NO_DOTS
+                or self == FilenameTcFormat.UNDERSCORE_WITH_DOTS)
+
+    def _use_dots(self) -> bool:
+        return (self == FilenameTcFormat.SPACE_WITH_DOTS
+                or self == FilenameTcFormat.UNDERSCORE_WITH_DOTS)
+
+
 class WavMetadata:
     """Holds metadata read from a WAV file."""
     path: pathlib.Path
@@ -132,7 +163,7 @@ class WavMetadata:
             (self.fmt_data.bit_depth / BITS_PER_BYTE)
         num_frames = self.data_size_bytes // frame_size_bytes
         return float(num_frames) / self.fmt_data.sample_rate_hz
-    
+
     def bwf_start_time_secs(self, frame_rate: FrameRate) -> float:
         """Returns start time in (fractional) seconds from origin time."""
         assert self.bwf_data is not None  # Only call if present.

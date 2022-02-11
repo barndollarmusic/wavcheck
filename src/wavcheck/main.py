@@ -45,7 +45,8 @@ def cli():
 
     # Determine framerate.
     ctx.frame_rate = read_or_prompt_framerate(ctx, args.framerate or "")
-    print(f"[wavcheck] Interpreting timecodes using frame rate {ctx.frame_rate}")
+    print(
+        f"[wavcheck] Interpreting timecodes using frame rate {ctx.frame_rate}")
 
     # Read all WAV files in directory and check them for issues.
     state = read_wav_files(ctx)
@@ -59,4 +60,8 @@ def cli():
     # If applicable, prompt user to fix any correctible problems.
     maybe_fix_wav_files(ctx, state)
 
-    sys.exit(state.warning_count())
+    num_warnings = state.warning_count()
+    if num_warnings == 0:
+        print("\n[wavcheck] SUCCESS: No warnings found. Happy scoring :)\n")
+
+    sys.exit(num_warnings)

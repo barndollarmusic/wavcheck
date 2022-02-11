@@ -4,6 +4,8 @@
 
 import sys
 
+from wavcheck.data import FilenameTcFormat
+
 from .timecode import DropType, FrameRate, FramesPerSec
 
 
@@ -63,3 +65,37 @@ def prompt_should_fix_umids() -> bool:
     print(">>>>>>>>>> 📎 Looks like you have non-unique UMIDs, would you like me to")
     answer = input("              fix them to all be unique? [y/N] ")
     return answer.strip().lower().startswith("y")
+
+
+def prompt_should_append_filename_tcs() -> bool:
+    """Asks user if they want to append any missing timecodes to filenames."""
+    print(">>>>>>>>>> 📎 Looks like some filenames don't contain timecodes,")
+    answer = input("              would you like me to rename those files for you? [y/N] ")
+    return answer.strip().lower().startswith("y")
+
+
+def prompt_filename_suffix_format() -> FilenameTcFormat:
+    """Interactively prompts user to select a filename timecode format."""
+    print()
+    print("How should a file BASENAME.wav starting at 01:02:03:04 be renamed?\n")
+    print("[1] BASENAME TC01020304.wav")
+    print("[2] BASENAME_TC01020304.wav")
+    print("[3] BASENAME TC01.02.03.04.wav")
+    print("[4] BASENAME_TC01.02.03.04.wav")
+    print()
+
+    try:
+        choice = int(input(">>>>>>>>>> Select a filename timecode suffix format (1-4): "))
+        if choice < 1 or 4 < choice:
+            raise Exception()
+    except Exception:
+        sys.exit("[wavcheck] ERROR: Invalid filename timecode suffix format choice")
+
+    if choice == 1:
+        return FilenameTcFormat.SPACE_NO_DOTS
+    elif choice == 2:
+        return FilenameTcFormat.UNDERSCORE_NO_DOTS
+    elif choice == 3:
+        return FilenameTcFormat.SPACE_WITH_DOTS
+    else:
+        return FilenameTcFormat.UNDERSCORE_WITH_DOTS
