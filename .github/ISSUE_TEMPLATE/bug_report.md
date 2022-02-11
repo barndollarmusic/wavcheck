@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022 Barndollar Music, Ltd.
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ---
 name: Bug report
 about: Create a report to help us improve
