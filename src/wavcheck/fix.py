@@ -38,7 +38,8 @@ def _maybe_fix_umids(ctx: Context, state: InternalState):
 
             seen_hex_umids.add(hex_umid)
 
-    print("\n[wavcheck] DONE! Now all your WAV files can be their precious, unique selves. ❄️❄️❄️\n")
+    print(("\n[wavcheck] DONE! Now all your WAV files can be their precious, "
+           "unique selves. ❄️ ❄️ ❄️\n"))
 
 
 def _fix_umid(wav_file: WavFileState, seen_hex_umids: set[str]) -> str:
