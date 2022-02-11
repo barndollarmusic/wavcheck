@@ -5,9 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 # wavcheck
-Free little tool to checks audio WAV files in Broadcast Wave Format (BWF) for
-issues (timecode, UMID, *etc.*). Designed especially for film &amp; TV composers
-to use before sending out mix tracks or stems that need to remain synchronized.
+Free little command-line tool to check audio WAV files in Broadcast Wave Format
+(BWF) for issues (timecode, UMID, *etc.*). Designed especially for film &amp; TV
+composers to use before sending out mix tracks or stems that need to remain
+precisely synchronized.
 
 Also can automatically add the BWF embedded starting timecode into filenames
 (like `yourtune_TC01020304.wav`) and fix duplicate UMID problems.
@@ -18,7 +19,8 @@ Also can automatically add the BWF embedded starting timecode into filenames
 
 ## How to Install
 
-TODO: Document.
+**PREREQUISITE**: requires Python 3.6 or later installed on your system. You can
+download the latest verion [here](https://www.python.org/downloads/).
 
 
 ## How to Use
@@ -43,4 +45,5 @@ Looks for and warns about these potential problems:
 
 ## Run into any problems (with this wavcheck tool)?
 
-TODO: File an issue.
+Look for an existing bug report or file a new issue
+[here](https://github.com/barndollarmusic/wavcheck/issues).
