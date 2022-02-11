@@ -42,6 +42,12 @@ py -m pipx ensurepath
 pipx install wavcheck
 ```
 
+### Upgrading to a New Version
+
+```bash
+pipx upgrade wavcheck
+```
+
 
 ## Quick Start
 

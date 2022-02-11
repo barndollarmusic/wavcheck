@@ -13,7 +13,7 @@ from .read import read_or_prompt_framerate, read_wav_files
 from .report import print_report, print_verbose_info
 
 __name__ = "wavcheck"
-__version__ = "0.9.0"
+__version__ = "0.9.1"  # NOTE: Also update setup.cfg when updating version.
 
 
 # Command-line arguments:
