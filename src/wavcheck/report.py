@@ -6,7 +6,7 @@ import collections
 import sys
 
 from .data import BwfMetadata, Context, CrossFileCheck, InternalState, KSDATAFORMAT_SUBTYPE_PCM, SupportedFormatTag, WavFileCheck, WavFileState, WavMetadata
-from .timecode import wall_secs_to_durstr
+from .timecode import wall_secs_to_durstr, wall_secs_to_fractional_frame_idx, wall_secs_to_tc_left
 
 # TODO: Use a terminal color output library like Colorama to add colorful text
 # for all print() calls.
@@ -24,16 +24,25 @@ def print_verbose_info(ctx: Context, state: InternalState):
         wav_file = state.wav_files[filename]
 
         print(filename)
+        _print_detected_timecode_in_filename(ctx, wav_file.metadata)
         print((f"  {wav_file.metadata.fmt_data.bit_depth} bit, "
                f"{wav_file.metadata.fmt_data.sample_rate_hz / 1000.0} kHz, "
                f"{wav_file.metadata.fmt_data.num_chans} channels, "
                f"{wall_secs_to_durstr(wav_file.metadata.duration_secs())}"))
 
-        _print_verbose_bwf_info(wav_file.metadata)
+        _print_verbose_bwf_info(ctx, wav_file.metadata)
         print()
 
 
-def _print_verbose_bwf_info(wav_data: WavMetadata):
+def _print_detected_timecode_in_filename(ctx: Context, wav_data: WavMetadata):
+    """Prints verbose info for timecode detected in filename."""
+    tc_str = "(none recognized)"
+    if wav_data.tc_in_filename is not None:
+        tc_str = str(wav_data.tc_in_filename.tc)
+    print(f"  Timecode in Filename: {tc_str}")
+
+
+def _print_verbose_bwf_info(ctx: Context, wav_data: WavMetadata):
     """Prints verbose info for this BWF metadata."""
     bwf_data = wav_data.bwf_data
     if bwf_data is None:
@@ -43,12 +52,20 @@ def _print_verbose_bwf_info(wav_data: WavMetadata):
     print(
         f"  Contains Broadcast Wave Format (BWF) v{bwf_data.version} Metadata: ")
 
-    # TODO: Read or input frame rate information from the user to support
-    # outputting timecode values here.
     start_samples = bwf_data.samples_since_origin
-    start_secs = float(start_samples) / wav_data.fmt_data.sample_rate_hz
+    start_secs = wav_data.bwf_start_time_secs(ctx.frame_rate)
+    start_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
+
+    fractional_frames_msg = ""
+    fractional_frames = wall_secs_to_fractional_frame_idx(
+        start_secs, ctx.frame_rate) % 1.0
+    if fractional_frames > 0.01:
+        fractional_frames_msg = f" and {fractional_frames:0.3f} FRACTIONAL FRAME"
+
     print((f"    [Time] Start: {start_samples} samples "
            f"({wall_secs_to_durstr(start_secs)} wall time) after 00:00:00:00"))
+    print((f"                  (interpreted as {start_tc}{fractional_frames_msg} "
+           f"in {ctx.frame_rate})"))
 
     print((f"    [Orig] {bwf_data.originator} {bwf_data.originator_reference} "
            f"{bwf_data.origination_date} {bwf_data.origination_time}"))
@@ -96,7 +113,7 @@ def print_report(ctx: Context, state: InternalState):
 
         print(f"!! Warnings for {filename}:")
         for file_check in state.wav_files[filename].failed_checks:
-            _print_file_check(file_check, state.wav_files[filename])  # TODO.
+            _print_file_check(ctx, file_check, state.wav_files[filename])
         print()
 
     print()
@@ -134,7 +151,7 @@ def _print_cross_check(cross_check: CrossFileCheck, state: InternalState):
                 print(f"    {umids[umid]}")
 
 
-def _print_file_check(file_check: WavFileCheck, wav_state: WavFileState):
+def _print_file_check(ctx: Context, file_check: WavFileCheck, wav_state: WavFileState):
     """Prints warning information for the given file-specific check."""
     metadata = wav_state.metadata
 
@@ -169,6 +186,15 @@ def _print_file_check(file_check: WavFileCheck, wav_state: WavFileState):
         print("    BWF: Starts at timecode 00:00:00:00")
         return
 
+    if file_check == WavFileCheck.FRACTIONAL_FRAME_START_TC:
+        start_secs = wav_state.metadata.bwf_start_time_secs(ctx.frame_rate)
+        bwf_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
+        fractional_frames = wall_secs_to_fractional_frame_idx(
+            start_secs, ctx.frame_rate) % 1.0
+        fraction_str = f"{fractional_frames:.3f}".lstrip("0")
+        print(f"    BWF: Starts on fractional frame {bwf_tc}{fraction_str}")
+        print(f"         (as interpreted in {ctx.frame_rate})")
+
     if file_check == WavFileCheck.MISSING_UMID:
         print("    BWF: Missing Unique Material Identifier (UMID)")
         return
@@ -176,4 +202,11 @@ def _print_file_check(file_check: WavFileCheck, wav_state: WavFileState):
     if file_check == WavFileCheck.UNNATURALLY_LOUD:
         print("    BWF: Has at least 1 unnaturally loud stat")
         print(f"         {_loudness_summary(metadata.bwf_data)}")
+        return
+    
+    if file_check == WavFileCheck.FILENAME_TC_MISMATCH:
+        start_secs = wav_state.metadata.bwf_start_time_secs(ctx.frame_rate)
+        bwf_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
+        print(f"    BWF: Start timecode {bwf_tc} (in {ctx.frame_rate})")
+        print(f"         file name's TC {metadata.tc_in_filename.tc}")
         return

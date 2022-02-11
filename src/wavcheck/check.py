@@ -5,7 +5,8 @@
 import collections
 import sys
 
-from .data import KSDATAFORMAT_SUBTYPE_PCM, Context, CrossFileCheck, InternalState, SupportedFormatTag, WavFileCheck, WavFileState
+from .data import KSDATAFORMAT_SUBTYPE_PCM, Context, CrossFileCheck, InternalState, SupportedFormatTag, TcConfidence, WavFileCheck, WavFileState
+from .timecode import wall_secs_to_fractional_frame_idx, wall_secs_to_tc_left
 
 
 def check_wav_files(ctx: Context, state: InternalState):
@@ -21,7 +22,7 @@ def check_wav_files(ctx: Context, state: InternalState):
 
     for filename in state.wav_files:
         wav_file = state.wav_files[filename]
-        _check_wav_file(wav_file)
+        _check_wav_file(ctx, wav_file)
 
         bit_depths.add(wav_file.metadata.fmt_data.bit_depth)
         sample_rates.add(wav_file.metadata.fmt_data.sample_rate_hz)
@@ -38,23 +39,23 @@ def check_wav_files(ctx: Context, state: InternalState):
         if umid_counts[umid] >= 2:
             state.failed_cross_checks.append(CrossFileCheck.NON_UNIQUE_UMIDS)
             break
-    # TODO: Verify potential framerates based on TC in filenames across files.
 
 
-def _check_wav_file(wav_state: WavFileState):
+def _check_wav_file(ctx: Context, wav_state: WavFileState):
     """Performs per-file checks for one WAV file."""
 
     # Basic WAV metadata checks:
-    if wav_state.metadata.fmt_data.format_tag == SupportedFormatTag.WAVE_FORMAT_EXTENSIBLE:
-        if wav_state.metadata.fmt_data.ext_sub_format != KSDATAFORMAT_SUBTYPE_PCM:
+    fmt_data = wav_state.metadata.fmt_data
+    if fmt_data.format_tag == SupportedFormatTag.WAVE_FORMAT_EXTENSIBLE:
+        if fmt_data.ext_sub_format != KSDATAFORMAT_SUBTYPE_PCM:
             wav_state.failed_checks.append(WavFileCheck.NONSTANDARD_FORMAT)
-    elif wav_state.metadata.fmt_data.format_tag != SupportedFormatTag.WAVE_FORMAT_PCM:
+    elif fmt_data.format_tag != SupportedFormatTag.WAVE_FORMAT_PCM:
         wav_state.failed_checks.append(WavFileCheck.NONSTANDARD_FORMAT)
 
-    if wav_state.metadata.fmt_data.bit_depth < 16:
+    if fmt_data.bit_depth < 16:
         wav_state.failed_checks.append(WavFileCheck.LOW_BIT_DEPTH)
 
-    if wav_state.metadata.fmt_data.sample_rate_hz < 44100:
+    if fmt_data.sample_rate_hz < 44100:
         wav_state.failed_checks.append(WavFileCheck.LOW_SAMPLE_RATE)
 
     if wav_state.metadata.duration_secs() < 1.0:
@@ -69,7 +70,12 @@ def _check_wav_file(wav_state: WavFileState):
     if bwf_data.samples_since_origin == 0:
         wav_state.failed_checks.append(WavFileCheck.STARTS_AT_TIME_ZERO)
 
-    # TODO: Add support for checking start time against HHMMSSFF in filename.
+    start_secs = wav_state.metadata.bwf_start_time_secs(ctx.frame_rate)
+    bwf_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
+    fractional_frames = wall_secs_to_fractional_frame_idx(
+        start_secs, ctx.frame_rate) % 1.0
+    if fractional_frames > 0.01:
+        wav_state.failed_checks.append(WavFileCheck.FRACTIONAL_FRAME_START_TC)
 
     if (bwf_data.version == 0 or _is_all_zeros(bwf_data.umid)):
         wav_state.failed_checks.append(WavFileCheck.MISSING_UMID)
@@ -82,6 +88,11 @@ def _check_wav_file(wav_state: WavFileState):
             or bwf_data.max_short_term_lufs >= -6.0
             or bwf_data.integrated_lufs >= -9.0):
         wav_state.failed_checks.append(WavFileCheck.UNNATURALLY_LOUD)
+
+    # Timecode in filename checks (ensure it matches BWF start time):
+    tc_in_filename = wav_state.metadata.tc_in_filename
+    if tc_in_filename is not None and tc_in_filename.tc != bwf_tc:
+        wav_state.failed_checks.append(WavFileCheck.FILENAME_TC_MISMATCH)
 
 
 def _is_all_zeros(data: bytes) -> bool:

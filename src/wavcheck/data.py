@@ -5,7 +5,7 @@
 import enum
 import pathlib
 
-from .timecode import FrameRate
+from .timecode import FrameRate, Timecode
 
 # The number of bits in a byte.
 BITS_PER_BYTE = 8
@@ -81,6 +81,25 @@ class BwfMetadata:
     max_short_term_lufs: float
 
 
+@enum.unique
+class TcConfidence(enum.Enum):
+    # Series of numbers interpreted as timecode, without explicit "TC" prefix.
+    IMPLICIT_NUMBERS_ONLY = 0
+
+    # Explcit "TC" prefix before series of numbers.
+    EXPLICIT_TC_PREFIX = 1
+
+
+class FilenameTimecode:
+    """Timecode interpreted from a filename."""
+    tc: Timecode
+    confidence: TcConfidence
+
+    def __init__(self, tc: Timecode, confidence: TcConfidence):
+        self.tc = tc
+        self.confidence = confidence
+
+
 class WavMetadata:
     """Holds metadata read from a WAV file."""
     path: pathlib.Path
@@ -94,6 +113,9 @@ class WavMetadata:
     # The number of audio bytes in the data chunk.
     data_size_bytes: int
 
+    # Timecode parsed from the filename (e.g. some_prefix_TC01020304.wav).
+    tc_in_filename: FilenameTimecode
+
     def __init__(self, path: pathlib.Path):
         self.path = path
         self.fmt_data = None
@@ -106,6 +128,13 @@ class WavMetadata:
             (self.fmt_data.bit_depth / BITS_PER_BYTE)
         num_frames = self.data_size_bytes // frame_size_bytes
         return float(num_frames) / self.fmt_data.sample_rate_hz
+    
+    def bwf_start_time_secs(self, frame_rate: FrameRate) -> float:
+        """Returns start time in (fractional) seconds from origin time."""
+        assert self.bwf_data is not None  # Only call if present.
+
+        start_samples = self.bwf_data.samples_since_origin
+        return float(start_samples) / self.fmt_data.sample_rate_hz
 
 
 @enum.unique
@@ -116,8 +145,10 @@ class WavFileCheck(enum.IntEnum):
     VERY_SHORT_DURATION = 4
     MISSING_BWF = 5
     STARTS_AT_TIME_ZERO = 6
-    MISSING_UMID = 7
-    UNNATURALLY_LOUD = 8
+    FRACTIONAL_FRAME_START_TC = 7
+    MISSING_UMID = 8
+    UNNATURALLY_LOUD = 9
+    FILENAME_TC_MISMATCH = 10
 
 
 @enum.unique

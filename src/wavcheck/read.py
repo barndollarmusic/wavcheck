@@ -9,9 +9,9 @@ import re
 import struct
 import sys
 
-from .data import BwfMetadata, Context, FmtMetadata, InternalState, SupportedFormatTag, WavFileState, WavMetadata
+from .data import BwfMetadata, Context, FilenameTimecode, FmtMetadata, InternalState, SupportedFormatTag, TcConfidence, WavFileState, WavMetadata
 from .prompt import prompt_framerate, prompt_write_framerate_file
-from .timecode import FrameRate, FrameRateMatchLevel, parse_framerate_within
+from .timecode import FrameRate, FrameRateMatchLevel, parse_framerate_within, parse_timecode_str
 from .write import write_framerate_file
 
 
@@ -39,10 +39,11 @@ def read_or_prompt_framerate(ctx: Context, framerate_input: str) -> FrameRate:
 def _read_framerate_from_arg_or_die(ctx: Context, framerate_input: str) -> FrameRate:
     """Tries to read framerate from provided arg, or exits with failure."""
     # See if argument directly specified a framerate:
-    frame_rate = parse_framerate_within(framerate_input, FrameRateMatchLevel.REQUIRE_FULL_MATCH)
+    frame_rate = parse_framerate_within(
+        framerate_input, FrameRateMatchLevel.REQUIRE_FULL_MATCH)
     if frame_rate is not None:
         return frame_rate
-    
+
     # Otherwise, see if this argument names a file.
     # If relative, interpret relative to dir.
     path = pathlib.Path(framerate_input)
@@ -51,7 +52,7 @@ def _read_framerate_from_arg_or_die(ctx: Context, framerate_input: str) -> Frame
     if not path.exists() or not path.is_file():
         sys.exit((f"[wavcheck] ERROR: Trying to find a framerate in {path}, "
                   "but it doesn't exist as a file"))
-    
+
     return _read_framerate_from_file_or_die(path)
 
 
@@ -117,6 +118,8 @@ def read_wav_files(ctx: Context) -> InternalState:
                 p = pathlib.Path(entry.path).resolve()
                 result.wav_files[p.name] = WavFileState()
                 result.wav_files[p.name].metadata = _read_wav_file(p)
+    
+    _clean_up_filename_tcs(result)
     return result
 
 
@@ -126,11 +129,11 @@ _WAV_HDR_LEN_BYTES = 12
 
 def _read_wav_file(path: pathlib.Path) -> WavMetadata:
     """Reads metadata for the given WAV file."""
-
     metadata = WavMetadata(path)
+    metadata.tc_in_filename = _find_tc_in_filename(path.name)
 
     with open(path, mode='rb') as file:
-        # Read Broadcast Wave Format (BWF) chunk metadata, if present.
+        # Read all relevant RIFF chunk metadata.
         file.seek(_WAV_HDR_LEN_BYTES)
         while True:
             try:
@@ -147,6 +150,32 @@ def _read_wav_file(path: pathlib.Path) -> WavMetadata:
                 break
 
     return metadata
+
+
+_TC_NUMBERS_FILENAME_PATTERN = r"\d?\d[-_. ]?\d\d[-_. ]?\d\d[-_. ]?\d\d"
+_TC_EXPLICIT_FILENAME_PATTERN = re.compile(
+    rf"TC[-_. ]*({_TC_NUMBERS_FILENAME_PATTERN})[^\d]", re.IGNORECASE)
+_TC_IMPLICIT_FILENAME_PATTERN = re.compile(
+    rf"[^\d]({_TC_NUMBERS_FILENAME_PATTERN})[^\d]")
+
+
+def _find_tc_in_filename(name: str) -> FilenameTimecode:
+    """Returns a Timecode if found in a known pattern within name."""
+    # Prefer explicit match with TC prefix.
+    match = _TC_EXPLICIT_FILENAME_PATTERN.search(name)
+    if match:
+        return FilenameTimecode(parse_timecode_str(match.group(1)),
+                                TcConfidence.EXPLICIT_TC_PREFIX)
+
+    # Otherwise, look for the last matching sequence of 7-8 digits.
+    last_match = None
+    for last_match in _TC_IMPLICIT_FILENAME_PATTERN.finditer(name):
+        continue
+    if last_match:
+        return FilenameTimecode(parse_timecode_str(last_match.group(1)),
+                                TcConfidence.IMPLICIT_NUMBERS_ONLY)
+    
+    return None  # No timecode found.
 
 
 _FMT_STRUCT_PACK_FMT = (
@@ -274,3 +303,23 @@ def _safe_str(data: bytes) -> str:
 
     # But escape non-printable characters.
     return raw_str.encode("unicode_escape").decode("iso-8859-1")
+
+
+def _clean_up_filename_tcs(state: InternalState):
+    found_any_explicit = False
+
+    for filename in state.wav_files:
+        filename_tc = state.wav_files[filename].metadata.tc_in_filename
+        if (filename_tc is not None
+                and filename_tc.confidence == TcConfidence.EXPLICIT_TC_PREFIX):
+            found_any_explicit = True
+            break
+    
+    # If any explicit TC-prefixed timecodes were detected in filenames, ignore
+    # any implicit digit sequences that weren't TC prefixed.
+    if found_any_explicit:
+        for filename in state.wav_files:
+            filename_tc = state.wav_files[filename].metadata.tc_in_filename
+            if (filename_tc is not None
+                    and filename_tc.confidence == TcConfidence.IMPLICIT_NUMBERS_ONLY):
+                state.wav_files[filename].metadata.tc_in_filename = None  # Clear.

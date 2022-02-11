@@ -80,14 +80,14 @@ class FrameRate:
 
     def fps(self) -> FramesPerSec:
         return self._fps
-    
+
     def int_fps(self) -> int:
         rate_info = _FRAME_RATES[self._fps]
         return math.ceil(float(rate_info.frames) / rate_info.per_wall_secs)
 
     def drop_type(self) -> DropType:
         return self._drop_type
-    
+
     def drop_frames_per_10mins(self) -> int:
         if self._drop_type == DropType.NON_DROP:
             return 0
@@ -229,9 +229,35 @@ class Timecode:
         self.mm = mm
         self.ss = ss
         self.ff = ff
-    
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Timecode):
+            return False
+        other_tc: Timecode = other
+        return (self.hh == other_tc.hh
+                and self.mm == other_tc.mm
+                and self.ss == other_tc.ss
+                and self.ff == other_tc.ff)
+
     def __str__(self) -> str:
         return f"{self.hh:02}:{self.mm:02}:{self.ss:02}:{self.ff:02}"
+
+
+_NON_DIGIT_PATTERN = re.compile(r"[^\d]")
+
+
+def parse_timecode_str(s: str) -> Timecode:
+    """Parses a timecode from all the numeric digits in s."""
+    digits = _NON_DIGIT_PATTERN.sub("", s)  # Remove non-digits.
+    digits = f"{int(digits):08}"  # Zero pad to 8 digits.
+    if len(digits) != 8:
+        raise Exception(f"[wavcheck] Invalid timecode pattern '{s}'")
+
+    hh = int(digits[0:2])
+    mm = int(digits[2:4])
+    ss = int(digits[4:6])
+    ff = int(digits[6:8])
+    return Timecode(hh, mm, ss, ff)
 
 
 def _frames_per_dropped_block(fr: FrameRate) -> int:
@@ -241,14 +267,47 @@ def _frames_per_dropped_block(fr: FrameRate) -> int:
     return fr.drop_frames_per_10mins() // 9
 
 
+def tc_to_wall_secs(tc: Timecode, fr: FrameRate) -> float:
+    """Returns timecode as (fractional) wall time in seconds from origin."""
+    frame_idx = _tc_to_frame_idx(tc, fr)
+    return _frame_idx_to_wall_secs(frame_idx, fr)
+
+
+def _tc_to_frame_idx(tc: Timecode, fr: FrameRate) -> int:
+    # Calculate first ignoring dropped frames.
+    tc_total_mins = (_MINS_PER_HR * tc.hh) + tc.mm
+    tc_total_secs = (_SECS_PER_MIN * tc_total_mins) + tc.ss
+    frame_idx = (fr.int_fps() * tc_total_secs) + tc.ff
+
+    # Adjust for any frame numbers that were dropped.
+    if fr.drop_frames_per_10mins() > 0:
+        # Frames dropped through start of HH:
+        frames_dropped_per_hr = 6 * fr.drop_frames_per_10mins()
+        frame_idx -= tc.hh * frames_dropped_per_hr
+
+        # Frames dropped from start of HH to start of this 10 minute block:
+        frame_idx -= math.floor(float(tc.mm) / 10) * fr.drop_frames_per_10mins()
+
+        # Frames dropped since start of this 10 minute block:
+        frame_idx -= (tc.mm % 10) * _frames_per_dropped_block(fr)
+    
+    return frame_idx
+
+
+def _frame_idx_to_wall_secs(frame_idx: int, fr: FrameRate) -> float:
+    rate_info = _FRAME_RATES[fr.fps()]
+    return frame_idx * rate_info.per_wall_secs / float(rate_info.frames)
+
+
 def wall_secs_to_tc_left(wall_secs: float, fr: FrameRate) -> Timecode:
     """Returns timecode of closest frame before or exactly equal to given wall_secs."""
-    fractional_frame_idx = _wall_secs_to_fractional_frame_idx(wall_secs, fr)
+    fractional_frame_idx = wall_secs_to_fractional_frame_idx(wall_secs, fr)
     frame_idx = math.floor(fractional_frame_idx)
     return _frame_idx_to_tc(frame_idx, fr)
 
 
-def _wall_secs_to_fractional_frame_idx(wall_secs: float, fr: FrameRate) -> float:
+def wall_secs_to_fractional_frame_idx(wall_secs: float, fr: FrameRate) -> float:
+    """Returns (fractional) frame index of wall_secs from origin."""
     rate_info = _FRAME_RATES[fr.fps()]
     return wall_secs * rate_info.frames / rate_info.per_wall_secs
 
@@ -256,12 +315,13 @@ def _wall_secs_to_fractional_frame_idx(wall_secs: float, fr: FrameRate) -> float
 def _frame_idx_to_tc(frame_idx: int, fr: FrameRate) -> Timecode:
     if frame_idx < 0:
         raise Exception("Negative frame indexes are not supported")
-    
+
     frames_per_min = fr.int_fps() * _SECS_PER_MIN
     frames_per_hr = frames_per_min * _MINS_PER_HR
 
     # If this is a drop frame standard, adjust for any dropped frames.
-    frames_remaining = frame_idx + _frames_dropped_before_frame_idx(frame_idx, fr)
+    frames_remaining = frame_idx + \
+        _frames_dropped_before_frame_idx(frame_idx, fr)
 
     hh = math.floor(float(frames_remaining) / frames_per_hr)
     frames_remaining -= hh * frames_per_hr
@@ -279,7 +339,7 @@ def _frame_idx_to_tc(frame_idx: int, fr: FrameRate) -> Timecode:
 def _frames_dropped_before_frame_idx(frame_idx: int, fr: FrameRate) -> int:
     if fr.drop_type() == DropType.NON_DROP:
         return 0
-    
+
     frames_per_non_drop_min = fr.int_fps() * _SECS_PER_MIN
     frames_per_dropped_block = _frames_per_dropped_block(fr)
     frames_per_drop_min = frames_per_non_drop_min - frames_per_dropped_block
@@ -288,7 +348,8 @@ def _frames_dropped_before_frame_idx(frame_idx: int, fr: FrameRate) -> int:
     frames_per_10mins = 10 * frames_per_non_drop_min - fr.drop_frames_per_10mins()
 
     frames_remaining = frame_idx
-    num_complete_10min_blocks = math.floor(float(frames_remaining) / frames_per_10mins)
+    num_complete_10min_blocks = math.floor(
+        float(frames_remaining) / frames_per_10mins)
     frames_remaining -= frames_per_10mins * num_complete_10min_blocks
 
     num_dropped_frames = num_complete_10min_blocks * fr.drop_frames_per_10mins()
@@ -298,7 +359,9 @@ def _frames_dropped_before_frame_idx(frame_idx: int, fr: FrameRate) -> int:
         frames_remaining -= frames_per_non_drop_min
 
         # Each complete drop minute plus the current minute drops one block of frames.
-        num_complete_drop_mins = math.floor(float(frames_remaining) / frames_per_drop_min)
-        num_dropped_frames += (num_complete_drop_mins + 1) * frames_per_dropped_block
-    
+        num_complete_drop_mins = math.floor(
+            float(frames_remaining) / frames_per_drop_min)
+        num_dropped_frames += (num_complete_drop_mins +
+                               1) * frames_per_dropped_block
+
     return num_dropped_frames
