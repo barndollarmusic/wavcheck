@@ -14,8 +14,7 @@ Also can automatically add the BWF embedded starting timecode into filenames
 (like `yourtune_TC01020304.wav`) and fix duplicate UMID problems (which can
 cause warnings when importing into Pro Tools, for example).
 
-
-<!-- TODO: Screenshot or GIF. -->
+![Screenshot of wavcheck tool](screenshot.png)
 
 
 ## How to Install
