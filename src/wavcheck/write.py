@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import chunk
-import sys
 
 from .data import Context, WavFileState, WAV_HDR_LEN_BYTES
+from .print import print_error_exit, print_info
 from .timecode import FrameRate
 
 
@@ -27,7 +27,7 @@ def write_new_umid(wav_file: WavFileState, new_umid: bytearray):
     """Writes new_umid to the given wav_file."""
     assert len(new_umid) == _BWF_UMID_LEN
 
-    print(f"[wavcheck] Updating UMID for {wav_file.metadata.path.name} ...")
+    print_info(f"Updating UMID for {wav_file.metadata.path.name} ...")
     with open(wav_file.metadata.path, "r+b") as file:
         file.seek(WAV_HDR_LEN_BYTES)
         subchunk: chunk.Chunk = None
@@ -43,8 +43,13 @@ def write_new_umid(wav_file: WavFileState, new_umid: bytearray):
                 break
 
         if subchunk is None:
-            sys.exit((f"[wavcheck] BWF chunk not found in {wav_file.metadata.path}, "
-                      "was it changed on disk in the middle of running this program?"))
+            print_error_exit(
+                f"BWF chunk not found in {wav_file.metadata.path}, "
+                "was it changed on disk in the middle of running this program?")
+
+        # Sanity check that this chunk is big enough, so we never write data
+        # into another chunk if somehow the BWF chunk was corrput.
+        assert subchunk.getsize() >= _BWF_UMID_OFFSET + _BWF_UMID_LEN
 
         # Advance to the UMID field.
         subchunk.seek(_BWF_UMID_OFFSET)
@@ -53,9 +58,10 @@ def write_new_umid(wav_file: WavFileState, new_umid: bytearray):
         # For sanity, verify that these bytes match the old UMID we read previously.
         reread_umid = file.read(_BWF_UMID_LEN)
         if wav_file.metadata.bwf_data.umid != reread_umid:
-            sys.exit(f"[wavcheck] {wav_file.metadata.path}: "
-                     f"UMID re-read {reread_umid.hex().upper()} does not match "
-                     f"previously read value {wav_file.metadata.bwf_data.umid.hex().upper()}")
+            print_error_exit(
+                f"{wav_file.metadata.path}: "
+                f"UMID re-read {reread_umid.hex().upper()} does not match "
+                f"previously read value {wav_file.metadata.bwf_data.umid.hex().upper()}")
 
         # Write the new UMID value.
         file.seek(umid_pos)

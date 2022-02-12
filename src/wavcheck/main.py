@@ -9,8 +9,9 @@ import sys
 from .check import check_wav_files
 from .data import Context
 from .fix import maybe_fix_wav_files
+from .print import print_error_exit, print_info, print_init, print_success_exit
 from .read import read_or_prompt_framerate, read_wav_files
-from .report import print_report, print_verbose_info
+from .report import report_check_results
 
 __name__ = "wavcheck"
 __version__ = "0.9.1"  # NOTE: Also update setup.cfg when updating version.
@@ -32,36 +33,33 @@ parser.add_argument("dir", nargs="?", default=".",
 
 def cli():
     """Command-line interface."""
+    print_init()
     args = parser.parse_args()
 
     # Resolve input directory to find WAV files in.
     d = pathlib.Path(args.dir).resolve()
     if not d.exists():
-        sys.exit(f"[wavcheck] ERROR: input dir does not exist: '{d}'")
+        print_error_exit(f"input dir does not exist: '{d}'")
     if not d.is_dir():
-        sys.exit(f"[wavcheck] ERROR: '{d}' is not a directory")
+        print_error_exit(f"'{d}' is not a directory")
 
     ctx = Context(d, args.verbose or False)
 
     # Determine framerate.
     ctx.frame_rate = read_or_prompt_framerate(ctx, args.framerate or "")
-    print(
-        f"[wavcheck] Interpreting timecodes using frame rate {ctx.frame_rate}")
+    print_info(f"Interpreting timecodes using frame rate {ctx.frame_rate}\n")
 
     # Read all WAV files in directory and check them for issues.
     state = read_wav_files(ctx)
-    print(f"[wavcheck] Read {len(state.wav_files)} .wav files")
+    print_info(f"Read {len(state.wav_files)} .wav files")
     check_wav_files(ctx, state)
-
-    if args.verbose:
-        print_verbose_info(ctx, state)
-    print_report(ctx, state)
+    report_check_results(ctx, state)
 
     # If applicable, prompt user to fix any correctible problems.
     maybe_fix_wav_files(ctx, state)
 
     num_warnings = state.warning_count()
     if num_warnings == 0:
-        print("\n[wavcheck] SUCCESS: No warnings found. Happy scoring :)\n")
+        print_success_exit("No warnings found. Happy scoring :)\n")
 
     sys.exit(num_warnings)

@@ -5,7 +5,9 @@
 import enum
 import pathlib
 
+from .print import print_verbose
 from .timecode import FrameRate, Timecode
+
 
 # The number of bits in a byte.
 BITS_PER_BYTE = 8
@@ -21,6 +23,11 @@ class Context:
         self.dir = dir
         self.verbose = verbose
         self.frame_rate = None  # Filled in later.
+
+    def maybe_print_verbose(self, msg: str):
+        """If in verbose mode, prints msg."""
+        if self.verbose:
+            print_verbose(msg)
 
 
 # Length of b"RIFF", <ChunkSize>, and b"WAVE" header.

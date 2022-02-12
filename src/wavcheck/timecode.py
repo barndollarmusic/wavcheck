@@ -6,6 +6,8 @@ import enum
 import math
 import re
 
+from .print import print_blank_line, print_check_warning, print_error_exit
+
 _MINS_PER_HR = 60
 _SECS_PER_MIN = 60
 
@@ -72,8 +74,8 @@ class FrameRate:
 
     def __init__(self, fps: FramesPerSec, drop_type: DropType):
         if drop_type == DropType.DROP and not fps in _DROP_FRAMES_PER_10MINS:
-            raise Exception(
-                f"[wavcheck] FramesPerSec {fps} is not a valid drop frame standard")
+            print_error_exit(
+                f"FramesPerSec {fps} is not a valid drop frame standard")
 
         self._fps = fps
         self._drop_type = drop_type
@@ -145,17 +147,18 @@ def parse_framerate_within(s: str, level=FrameRateMatchLevel.SEARCH_WITHIN) -> F
     elif fps_num == 60:
         fps = FramesPerSec.FPS_60_000
     else:
-        raise Exception(f"[wavcheck] Unsupported framerate fps: {fps_str}")
+        print_error_exit(f"Unsupported framerate fps: {fps_str}")
 
     # Warn user of potential ambiguity if applicable.
     fps_num_decimal_digits = max(len(fps_str) - 3, 0)  # Count after '##.'
     if (fps_num_decimal_digits == 0
             and (fps == FramesPerSec.FPS_24_000 or fps == FramesPerSec.FPS_30_000
                  or fps == FramesPerSec.FPS_48_000 or fps == FramesPerSec.FPS_60_000)):
-        print()
-        print((f"!! WARNING: frames per second {fps_str} is potentially ambiguous. "
-               f"Specify as {fps} to avoid confusion."))
-        print()
+        print_blank_line()
+        print_check_warning(
+            f"frames per second {fps_str} is potentially ambiguous. "
+            f"Specify as {fps} to avoid confusion.")
+        print_blank_line()
 
     drop_type_str = match.group(2) or ""
     drop_type = (DropType.DROP
@@ -166,8 +169,8 @@ def parse_framerate_within(s: str, level=FrameRateMatchLevel.SEARCH_WITHIN) -> F
     # non-drop qualifier.
     if (len(drop_type_str) == 0
             and (fps == FramesPerSec.FPS_29_970 or fps == FramesPerSec.FPS_59_940)):
-        raise Exception(
-            f"[wavcheck] frames per second {fps} ambiguous; specify drop or non-drop")
+        print_error_exit(
+            f"frames per second {fps} ambiguous; specify drop or non-drop")
 
     return FrameRate(fps, drop_type)  # Checks combination for validity.
 
@@ -178,8 +181,7 @@ def wall_secs_to_durstr(wall_secs: float) -> str:
     Rounds fractional seconds to the nearest value (with 0.5 rounding up).
     Example output for 4994.5 seconds is "1h 23m 15s".
     """
-    if not math.isfinite(wall_secs):
-        raise Exception("wall_secs must be finite: " + wall_secs)
+    assert math.isfinite(wall_secs)
 
     is_negative = False
     if wall_secs < 0.0:
@@ -251,7 +253,7 @@ def parse_timecode_str(s: str) -> Timecode:
     digits = _NON_DIGIT_PATTERN.sub("", s)  # Remove non-digits.
     digits = f"{int(digits):08}"  # Zero pad to 8 digits.
     if len(digits) != 8:
-        raise Exception(f"[wavcheck] Invalid timecode pattern '{s}'")
+        print_error_exit(f"Invalid timecode pattern '{s}'")
 
     hh = int(digits[0:2])
     mm = int(digits[2:4])
@@ -314,8 +316,7 @@ def wall_secs_to_fractional_frame_idx(wall_secs: float, fr: FrameRate) -> float:
 
 
 def _frame_idx_to_tc(frame_idx: int, fr: FrameRate) -> Timecode:
-    if frame_idx < 0:
-        raise Exception("Negative frame indexes are not supported")
+    assert frame_idx >= 0
 
     frames_per_min = fr.int_fps() * _SECS_PER_MIN
     frames_per_hr = frames_per_min * _MINS_PER_HR

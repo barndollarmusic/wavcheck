@@ -7,9 +7,9 @@ import os
 import pathlib
 import re
 import struct
-import sys
 
 from .data import BwfMetadata, Context, FilenameTimecode, FmtMetadata, InternalState, SupportedFormatTag, TcConfidence, WavFileState, WavMetadata, WAV_HDR_LEN_BYTES
+from .print import print_error_exit, print_info
 from .prompt import prompt_framerate, prompt_write_framerate_file
 from .timecode import FrameRate, FrameRateMatchLevel, parse_framerate_within, parse_timecode_str
 from .write import write_framerate_file
@@ -50,8 +50,8 @@ def _read_framerate_from_arg_or_die(ctx: Context, framerate_input: str) -> Frame
     path = path if path.is_absolute() else ctx.dir.joinpath(path)
     path = path.resolve()
     if not path.exists() or not path.is_file():
-        sys.exit((f"[wavcheck] ERROR: Trying to find a framerate in {path}, "
-                  "but it doesn't exist as a file"))
+        print_error_exit(
+            f"Trying to find a framerate in {path}, but it doesn't exist as a file")
 
     return _read_framerate_from_file_or_die(path)
 
@@ -75,7 +75,7 @@ def _maybe_read_framerate_from_default_file(ctx: Context) -> FrameRate:
 
 def _read_framerate_from_file_or_die(file: pathlib.Path):
     """Reads framerate from file (name or contents), or exits with failure."""
-    print(f"[wavcheck] Looking for a framerate within {file} ...")
+    print_info(f"Looking for a framerate within {file} ...")
 
     # See if framerate is directly contained in the filename.
     try:
@@ -101,20 +101,19 @@ def _read_framerate_from_file_or_die(file: pathlib.Path):
                                                 FrameRateMatchLevel.REQUIRE_FULL_MATCH)
 
     if frame_rate is None:
-        sys.exit(f"[wavcheck] Unable to find valid framerate in {file}")
+        print_error_exit(f"Unable to find valid framerate in {file}")
     return frame_rate
 
 
 def read_wav_files(ctx: Context) -> InternalState:
     """Reads metadata for all WAV files in the given dir."""
-    print(f"[wavcheck] Reading .wav files in '{ctx.dir}' ...")
+    print_info(f"Reading .wav files in '{ctx.dir}' ...")
 
     result = InternalState()
     with os.scandir(ctx.dir) as entries:
         for entry in entries:
             if entry.is_file() and str(entry.name).endswith(".wav"):
-                if ctx.verbose:
-                    print(f"[wavcheck] Reading {entry.name} ...")
+                ctx.maybe_print_verbose(f"Reading {entry.name} ...")
                 p = pathlib.Path(entry.path).resolve()
                 result.wav_files[p.name] = WavFileState()
                 result.wav_files[p.name].metadata = _read_wav_file(p)

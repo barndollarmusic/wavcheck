@@ -3,17 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import collections
-import sys
 
 from .data import KSDATAFORMAT_SUBTYPE_PCM, Context, CrossFileCheck, InternalState, SupportedFormatTag, TcConfidence, WavFileCheck, WavFileState
+from .print import print_error_exit
 from .timecode import wall_secs_to_fractional_frame_idx, wall_secs_to_tc_left
 
 
 def check_wav_files(ctx: Context, state: InternalState):
     """Checks WAV files for potential issues."""
     if len(state.wav_files) == 0:
-        sys.exit(
-            "[wavcheck] ERROR: No .wav files found (or is this a John Cage thing?)")
+        print_error_exit("No .wav files found (or is this a John Cage thing?)")
 
     # Per-file checks:
     bit_depths: set[int] = set()

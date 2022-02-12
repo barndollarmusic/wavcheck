@@ -8,6 +8,7 @@ import os
 import secrets
 
 from .data import Context, CrossFileCheck, InternalState, TcConfidence, WavFileCheck, WavFileState
+from .print import Phrases, print_blank_line, print_clippy_indented, print_info, print_light_warning, print_stern_warning, stern_warning
 from .prompt import prompt_filename_suffix_format, prompt_should_append_filename_tcs, prompt_should_fix_umids
 from .timecode import wall_secs_to_tc_left
 from .write import write_new_umid
@@ -23,7 +24,7 @@ def _maybe_fix_umids(ctx: Context, state: InternalState):
     if CrossFileCheck.NON_UNIQUE_UMIDS not in state.failed_cross_checks:
         return
 
-    print()
+    print_blank_line()
     if not prompt_should_fix_umids():
         return
 
@@ -38,8 +39,9 @@ def _maybe_fix_umids(ctx: Context, state: InternalState):
 
             seen_hex_umids.add(hex_umid)
 
-    print(("\n[wavcheck] DONE! Now all your WAV files can be their precious, "
-           "unique selves. ❄️ ❄️ ❄️\n"))
+    print_blank_line()
+    print_info((f"{Phrases.DONE}! Now all your WAV files can be their precious, "
+                "unique selves. ❄️ ❄️ ❄️\n"))
 
 
 def _fix_umid(wav_file: WavFileState, seen_hex_umids: set[str]) -> str:
@@ -131,20 +133,23 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
     if (status_counts[TcFilenameStatus.EXPLICIT_MISMATCH] >= 1
         or (status_counts[TcFilenameStatus.IMPLICIT_MISMATCH] >= 1
             and status_counts[TcFilenameStatus.IMPLICIT_MATCH] >= 1)):
-        print("[wavcheck] Please fix existing filenames with timecode mismatches.")
+        print_stern_warning(
+            "Please fix existing filenames with timecode mismatches.")
         return
 
-    print()
+    print_blank_line()
 
     # If there were only implicit mismatches, these may not have been
     # interpreted correctly (less confident without explicit "TC" prefix).
     if status_counts[TcFilenameStatus.IMPLICIT_MISMATCH] >= 1:
-        print("              (note potential existing filename timecode problems)")
+        print_clippy_indented(
+            stern_warning("(note potential existing filename timecode problems)"))
 
     # If there were fractional frame start times, the user also may not want to
     # rename with these timecodes.
     if has_fractional_frame_errors:
-        print("              (note fractional frame start time warnings)")
+        print_clippy_indented(
+            stern_warning("(note fractional frame start time warnings)"))
 
     # Ask user whether to rename fixable files and in what format.
     if not prompt_should_append_filename_tcs():
@@ -152,6 +157,7 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
     format = prompt_filename_suffix_format()
 
     # Rename those files.
+    num_renamed = 0
     for filename in state.wav_files:
         status = statuses[filename]
         if not status.is_potentially_fixable():
@@ -162,7 +168,16 @@ def _maybe_add_tc_to_filenames(ctx: Context, state: InternalState):
         start_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)
 
         new_name = format.apply(filename, start_tc)
-        print(f"[wavcheck] Renaming to {new_name} ...")
+        print_info(f"Renaming to {new_name} ...")
 
         new_path = wav_file.metadata.path.parent / new_name
         os.rename(wav_file.metadata.path, new_path)
+        num_renamed += 1
+
+    print_blank_line()
+    print_info(f"{Phrases.DONE}! Added timecode to {num_renamed} file names.")
+
+    num_without_bwf = status_counts[TcFilenameStatus.NONE_NO_BWF_START_TIME]
+    if num_without_bwf:
+        print_light_warning(
+            f"{num_without_bwf} files are missing BWF metadata, so could not be renamed.")
