@@ -91,6 +91,10 @@ class BwfMetadata:
     max_momentary_lufs: float
     max_short_term_lufs: float
 
+    def __init__(self):
+        self.umid = None
+        self.umid_hex = ""
+
 
 @enum.unique
 class TcConfidence(enum.Enum):
@@ -190,7 +194,8 @@ class WavFileCheck(enum.IntEnum):
     FRACTIONAL_FRAME_START_TC = 7
     MISSING_UMID = 8
     UNNATURALLY_LOUD = 9
-    FILENAME_TC_MISMATCH = 10
+    DBTP_ABOVE_ZERO = 10
+    FILENAME_TC_MISMATCH = 11
 
 
 @enum.unique

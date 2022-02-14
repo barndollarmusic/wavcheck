@@ -208,6 +208,11 @@ def _print_file_check(ctx: Context, file_check: WavFileCheck, wav_state: WavFile
         print_ind4(f"     {_loudness_summary(metadata.bwf_data)}")
         return
 
+    if file_check == WavFileCheck.DBTP_ABOVE_ZERO:
+        print_ind4("BWF: Has true peak level >= 0.0 dBTP")
+        print_ind4(f"     {_loudness_summary(metadata.bwf_data)}")
+        return
+
     if file_check == WavFileCheck.FILENAME_TC_MISMATCH:
         start_secs = wav_state.metadata.bwf_start_time_secs(ctx.frame_rate)
         bwf_tc = wall_secs_to_tc_left(start_secs, ctx.frame_rate)

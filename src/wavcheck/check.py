@@ -87,15 +87,20 @@ def _check_wav_file(ctx: Context, wav_state: WavFileState):
     if bwf_data.version < 2:
         return
 
-    if (bwf_data.max_dbtp >= -0.3
-            or bwf_data.max_momentary_lufs >= -3.0
+    if (bwf_data.max_momentary_lufs >= -3.0
             or bwf_data.max_short_term_lufs >= -6.0
             or bwf_data.integrated_lufs >= -9.0):
         wav_state.failed_checks.append(WavFileCheck.UNNATURALLY_LOUD)
+    
+    if bwf_data.max_dbtp >= 0.0:
+        wav_state.failed_checks.append(WavFileCheck.DBTP_ABOVE_ZERO)
 
 
 def _is_all_zeros(data: bytes) -> bool:
-    """Returns True if data is empty or consists of all zeros."""
+    """Returns True if data is None, empty, or consists of all zeros."""
+    if data is None:
+        return True
+    
     for i in data:
         if i != 0:
             return False

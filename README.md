@@ -86,8 +86,10 @@ Warns about these potential problems:
 - Missing Broadcast Wave Format (BWF) metadata.
 - Audio files that start at time `00:00:00:00`.
 - Audio files that start at a fractional timecode frame position.
-- Missing or duplicate SMPTE Unique Material Identifiers (UMIDs) within BWF metadata.
-- Unnaturally loud BWF loudness stats (achievement unlocked&mdash;but please don't).
+- Missing or duplicate SMPTE Unique Material Identifiers (UMIDs) within BWF
+  metadata.
+- Unnaturally loud BWF loudness stats (achievement unlocked&mdash;but please
+  don't), or true peaks above 0 dBTP.
 - Timecode in filename doesn't match BWF start time.
 
 
