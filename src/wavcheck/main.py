@@ -14,7 +14,7 @@ from .read import read_or_prompt_framerate, read_wav_files
 from .report import report_check_results
 
 __name__ = "wavcheck"
-__version__ = "0.9.2"  # NOTE: Also update setup.cfg when updating version.
+__version__ = "0.9.3"  # NOTE: Also update setup.cfg when updating version.
 
 
 # Command-line arguments:
