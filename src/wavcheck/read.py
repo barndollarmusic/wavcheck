@@ -112,7 +112,7 @@ def read_wav_files(ctx: Context) -> InternalState:
     result = InternalState()
     with os.scandir(ctx.dir) as entries:
         for entry in entries:
-            if entry.is_file() and str(entry.name).endswith(".wav"):
+            if entry.is_file() and (str(entry.name).endswith(".wav") or str(entry.name).endswith(".WAV")):
                 ctx.maybe_print_verbose(f"Reading {entry.name} ...")
                 p = pathlib.Path(entry.path).resolve()
                 result.wav_files[p.name] = WavFileState()
